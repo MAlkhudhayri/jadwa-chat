@@ -34,7 +34,7 @@
 
 @layer components {
   .chat-bubble-user {
-    @apply bg-jadwa-navy text-white rounded-2xl rounded-br-md px-4 py-3;
+    @apply bg-jadwa-brown text-white rounded-2xl rounded-br-md px-4 py-3;
   }
 
   .chat-bubble-assistant {
@@ -42,31 +42,31 @@
   }
 
   .btn-primary {
-    @apply bg-jadwa-navy hover:bg-jadwa-navy-light text-white font-medium
+    @apply bg-jadwa-brown hover:bg-jadwa-brown-light text-white font-medium
            px-4 py-2 rounded-lg transition-all duration-200
            disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
   .btn-gold {
-    @apply bg-jadwa-gold hover:bg-jadwa-gold-light text-jadwa-navy-dark font-semibold
+    @apply bg-jadwa-tan hover:bg-jadwa-tan-light text-jadwa-brown-dark font-semibold
            px-4 py-2 rounded-lg transition-all duration-200;
   }
 
   .btn-ghost {
-    @apply text-gray-600 hover:text-jadwa-navy hover:bg-gray-100
+    @apply text-gray-600 hover:text-jadwa-brown hover:bg-gray-100
            px-3 py-2 rounded-lg transition-all duration-200;
   }
 
   .input-base {
     @apply w-full border border-jadwa-border rounded-lg px-4 py-2.5
-           focus:outline-none focus:ring-2 focus:ring-jadwa-navy/20 focus:border-jadwa-navy
+           focus:outline-none focus:ring-2 focus:ring-jadwa-brown/20 focus:border-jadwa-brown
            placeholder:text-gray-400 transition-all duration-200;
   }
 
   /* Streaming cursor */
   .streaming-cursor::after {
     content: '▊';
-    @apply text-jadwa-navy animate-pulse-dot ml-0.5;
+    @apply text-jadwa-brown animate-pulse-dot ml-0.5;
   }
 
   /* Markdown styles in chat */
@@ -78,7 +78,7 @@
   .prose-chat ol { @apply list-decimal pl-5 mb-2 space-y-0.5; }
   .prose-chat li { @apply leading-relaxed; }
   .prose-chat code {
-    @apply bg-gray-100 text-jadwa-navy px-1.5 py-0.5 rounded text-sm font-mono;
+    @apply bg-gray-100 text-jadwa-brown px-1.5 py-0.5 rounded text-sm font-mono;
   }
   .prose-chat pre {
     @apply bg-gray-900 text-gray-100 rounded-lg p-3 my-2 overflow-x-auto;
@@ -87,7 +87,7 @@
     @apply bg-transparent text-gray-100 p-0;
   }
   .prose-chat blockquote {
-    @apply border-l-4 border-jadwa-gold pl-3 italic text-gray-600 my-2;
+    @apply border-l-4 border-jadwa-tan pl-3 italic text-gray-600 my-2;
   }
   .prose-chat table {
     @apply w-full border-collapse my-2;
@@ -118,6 +118,6 @@
 
 /* Dropzone styles */
 .dropzone-active {
-  @apply border-jadwa-gold bg-jadwa-gold/5;
+  @apply border-jadwa-tan bg-jadwa-tan/5;
 }
 

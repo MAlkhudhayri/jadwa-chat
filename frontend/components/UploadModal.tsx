@@ -125,7 +125,7 @@ export default function UploadModal({
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-jadwa-border">
           <div>
-            <h2 className="font-semibold text-jadwa-navy">Upload Data</h2>
+            <h2 className="font-semibold text-jadwa-brown">Upload Data</h2>
             <p className="text-xs text-gray-500 mt-0.5">
               CSV/Excel → Time Series &nbsp;|&nbsp; PDF/DOCX → Document Search
             </p>
@@ -141,15 +141,15 @@ export default function UploadModal({
             {...getRootProps()}
             className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
               isDragActive
-                ? "dropzone-active border-jadwa-gold"
-                : "border-gray-300 hover:border-jadwa-navy/30"
+                ? "dropzone-active border-jadwa-tan"
+                : "border-gray-300 hover:border-jadwa-brown/30"
             }`}
           >
             <input {...getInputProps()} />
             <Upload
               size={32}
               className={`mx-auto mb-3 ${
-                isDragActive ? "text-jadwa-gold" : "text-gray-400"
+                isDragActive ? "text-jadwa-tan" : "text-gray-400"
               }`}
             />
             <p className="text-sm text-gray-600 font-medium">
@@ -159,11 +159,11 @@ export default function UploadModal({
             </p>
             <div className="flex justify-center gap-4 mt-3">
               <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
-                <Database size={12} className="text-jadwa-gold" />
+                <Database size={12} className="text-jadwa-tan" />
                 CSV, Excel → Time Series
               </div>
               <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
-                <FileSearch size={12} className="text-jadwa-navy" />
+                <FileSearch size={12} className="text-jadwa-brown" />
                 PDF, DOCX, TXT → Documents
               </div>
             </div>
@@ -180,9 +180,9 @@ export default function UploadModal({
                   className="flex items-center gap-3 bg-gray-50 rounded-lg px-3 py-2.5"
                 >
                   {f.fileType === "timeseries" ? (
-                    <Database size={16} className="text-jadwa-gold shrink-0" />
+                    <Database size={16} className="text-jadwa-tan shrink-0" />
                   ) : (
-                    <FileText size={16} className="text-jadwa-navy shrink-0" />
+                    <FileText size={16} className="text-jadwa-brown shrink-0" />
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm truncate">{f.file.name}</p>
@@ -190,8 +190,8 @@ export default function UploadModal({
                       {(f.file.size / 1024).toFixed(0)} KB
                       <span className={`ml-1.5 px-1 py-0.5 rounded text-[9px] font-medium ${
                         f.fileType === "timeseries"
-                          ? "bg-jadwa-gold/10 text-jadwa-gold-dark"
-                          : "bg-jadwa-navy/10 text-jadwa-navy"
+                          ? "bg-jadwa-tan/10 text-jadwa-tan-dark"
+                          : "bg-jadwa-brown/10 text-jadwa-brown"
                       }`}>
                         {f.fileType === "timeseries" ? "→ SQLite" : "→ Qdrant"}
                       </span>
@@ -210,7 +210,7 @@ export default function UploadModal({
                     </button>
                   )}
                   {f.status === "uploading" && (
-                    <Loader2 size={16} className="text-jadwa-gold animate-spin" />
+                    <Loader2 size={16} className="text-jadwa-tan animate-spin" />
                   )}
                   {f.status === "success" && (
                     <CheckCircle2 size={16} className="text-green-500" />

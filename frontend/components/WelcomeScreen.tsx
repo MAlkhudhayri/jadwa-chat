@@ -17,11 +17,11 @@ export default function WelcomeScreen({
     <div className="flex-1 flex items-center justify-center p-8">
       <div className="max-w-lg text-center">
         {/* Logo */}
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-jadwa-navy to-jadwa-navy-light flex items-center justify-center mx-auto mb-6 shadow-lg">
-          <span className="text-jadwa-gold font-bold text-2xl">J</span>
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-jadwa-brown to-jadwa-brown-light flex items-center justify-center mx-auto mb-6 shadow-lg">
+          <span className="text-jadwa-tan font-bold text-2xl">J</span>
         </div>
 
-        <h2 className="text-2xl font-bold text-jadwa-navy mb-2">
+        <h2 className="text-2xl font-bold text-jadwa-brown mb-2">
           Welcome to JadwaChat
         </h2>
         <p className="text-gray-500 mb-8 leading-relaxed">
@@ -32,11 +32,11 @@ export default function WelcomeScreen({
         {/* Steps */}
         <div className="grid gap-4 text-left">
           <div className="flex items-start gap-4 bg-white border border-jadwa-border rounded-xl p-4">
-            <div className="w-10 h-10 rounded-lg bg-jadwa-gold/10 flex items-center justify-center shrink-0">
-              <Database size={18} className="text-jadwa-gold" />
+            <div className="w-10 h-10 rounded-lg bg-jadwa-tan/10 flex items-center justify-center shrink-0">
+              <Database size={18} className="text-jadwa-tan" />
             </div>
             <div>
-              <h3 className="font-semibold text-sm text-jadwa-navy mb-0.5">
+              <h3 className="font-semibold text-sm text-jadwa-brown mb-0.5">
                 1. Create a Database
               </h3>
               <p className="text-xs text-gray-500">
@@ -46,11 +46,11 @@ export default function WelcomeScreen({
           </div>
 
           <div className="flex items-start gap-4 bg-white border border-jadwa-border rounded-xl p-4">
-            <div className="w-10 h-10 rounded-lg bg-jadwa-gold/10 flex items-center justify-center shrink-0">
-              <Upload size={18} className="text-jadwa-gold" />
+            <div className="w-10 h-10 rounded-lg bg-jadwa-tan/10 flex items-center justify-center shrink-0">
+              <Upload size={18} className="text-jadwa-tan" />
             </div>
             <div>
-              <h3 className="font-semibold text-sm text-jadwa-navy mb-0.5">
+              <h3 className="font-semibold text-sm text-jadwa-brown mb-0.5">
                 2. Upload Documents
               </h3>
               <p className="text-xs text-gray-500">
@@ -61,11 +61,11 @@ export default function WelcomeScreen({
           </div>
 
           <div className="flex items-start gap-4 bg-white border border-jadwa-border rounded-xl p-4">
-            <div className="w-10 h-10 rounded-lg bg-jadwa-gold/10 flex items-center justify-center shrink-0">
-              <MessageSquare size={18} className="text-jadwa-gold" />
+            <div className="w-10 h-10 rounded-lg bg-jadwa-tan/10 flex items-center justify-center shrink-0">
+              <MessageSquare size={18} className="text-jadwa-tan" />
             </div>
             <div>
-              <h3 className="font-semibold text-sm text-jadwa-navy mb-0.5">
+              <h3 className="font-semibold text-sm text-jadwa-brown mb-0.5">
                 3. Start Chatting
               </h3>
               <p className="text-xs text-gray-500">

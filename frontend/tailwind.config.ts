@@ -9,12 +9,12 @@ const config: Config = {
     extend: {
       colors: {
         jadwa: {
-          navy: "#1B2A4A",
-          "navy-light": "#243560",
-          "navy-dark": "#111D35",
-          gold: "#C9A84C",
-          "gold-light": "#D4BA6A",
-          "gold-dark": "#B08E30",
+          brown: "#8B7355",
+          "brown-light": "#9A8468",
+          "brown-dark": "#6B5840",
+          tan: "#91775C",
+          "tan-light": "#A08B72",
+          "tan-dark": "#7A6549",
           slate: "#64748B",
           surface: "#F8FAFC",
           border: "#E2E8F0",

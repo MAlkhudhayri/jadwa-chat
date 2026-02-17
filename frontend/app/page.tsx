@@ -260,11 +260,11 @@ export default function Home() {
           {activeCollection ? (
             <div className="flex items-center gap-2">
               {activeCollection === ALL_DATABASES_KEY ? (
-                <Layers size={16} className="text-jadwa-gold" />
+                <Layers size={16} className="text-jadwa-tan" />
               ) : (
-                <Database size={16} className="text-jadwa-gold" />
+                <Database size={16} className="text-jadwa-tan" />
               )}
-              <span className="font-medium text-sm text-jadwa-navy">
+              <span className="font-medium text-sm text-jadwa-brown">
                 {activeCollection === ALL_DATABASES_KEY ? "All Databases" : activeCollection}
               </span>
               <span className="text-xs text-gray-400">
@@ -272,7 +272,7 @@ export default function Home() {
                 items
               </span>
               {activeCollection === ALL_DATABASES_KEY && (
-                <span className="text-[10px] bg-jadwa-gold/10 text-jadwa-gold-dark px-1.5 py-0.5 rounded font-medium">
+                <span className="text-[10px] bg-jadwa-tan/10 text-jadwa-tan-dark px-1.5 py-0.5 rounded font-medium">
                   Cross-DB
                 </span>
               )}

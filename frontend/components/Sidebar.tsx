@@ -72,7 +72,7 @@ export default function Sidebar({
 
       <aside
         className={cn(
-          "fixed lg:relative z-50 h-full bg-jadwa-navy-dark text-white flex flex-col",
+          "fixed lg:relative z-50 h-full bg-jadwa-brown-dark text-white flex flex-col",
           "transition-all duration-300 ease-in-out",
           isOpen ? "w-72 translate-x-0" : "w-0 -translate-x-full lg:w-0"
         )}
@@ -82,8 +82,8 @@ export default function Sidebar({
           <div className="p-4 border-b border-white/10">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-jadwa-gold flex items-center justify-center">
-                  <span className="text-jadwa-navy-dark font-bold text-sm">J</span>
+                <div className="w-8 h-8 rounded-lg bg-jadwa-tan flex items-center justify-center">
+                  <span className="text-jadwa-brown-dark font-bold text-sm">J</span>
                 </div>
                 <div>
                   <h1 className="font-semibold text-sm">JadwaChat</h1>
@@ -137,9 +137,9 @@ export default function Sidebar({
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         {isAllDb ? (
-                          <Layers size={14} className="shrink-0 text-jadwa-gold" />
+                          <Layers size={14} className="shrink-0 text-jadwa-tan" />
                         ) : (
-                          <FolderOpen size={14} className="shrink-0 text-jadwa-gold" />
+                          <FolderOpen size={14} className="shrink-0 text-jadwa-tan" />
                         )}
                         <span className="truncate">
                           {isAllDb ? "All Databases" : col.name}
@@ -148,7 +148,7 @@ export default function Sidebar({
                           {col.document_count}
                         </span>
                         {isAllDb && (
-                          <span className="text-[9px] bg-jadwa-gold/20 text-jadwa-gold px-1 py-0.5 rounded">
+                          <span className="text-[9px] bg-jadwa-tan/20 text-jadwa-tan px-1 py-0.5 rounded">
                             ALL
                           </span>
                         )}
@@ -182,7 +182,7 @@ export default function Sidebar({
                       value={newColName}
                       onChange={(e) => setNewColName(e.target.value.replace(/[^a-zA-Z0-9_-]/g, ""))}
                       placeholder="collection-name"
-                      className="w-full bg-white/10 text-white text-sm rounded px-2.5 py-1.5 placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-jadwa-gold"
+                      className="w-full bg-white/10 text-white text-sm rounded px-2.5 py-1.5 placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-jadwa-tan"
                       autoFocus
                       onKeyDown={(e) => e.key === "Enter" && handleCreateCollection()}
                     />
@@ -190,12 +190,12 @@ export default function Sidebar({
                       value={newColDesc}
                       onChange={(e) => setNewColDesc(e.target.value)}
                       placeholder="Description (optional)"
-                      className="w-full bg-white/10 text-white text-sm rounded px-2.5 py-1.5 placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-jadwa-gold"
+                      className="w-full bg-white/10 text-white text-sm rounded px-2.5 py-1.5 placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-jadwa-tan"
                     />
                     <div className="flex gap-1.5">
                       <button
                         onClick={handleCreateCollection}
-                        className="flex-1 text-xs bg-jadwa-gold text-jadwa-navy-dark py-1.5 rounded font-medium"
+                        className="flex-1 text-xs bg-jadwa-tan text-jadwa-brown-dark py-1.5 rounded font-medium"
                       >
                         Create
                       </button>
@@ -212,7 +212,7 @@ export default function Sidebar({
                 {activeCollection && (
                   <button
                     onClick={onOpenUpload}
-                    className="flex items-center gap-2 px-2.5 py-2 text-sm text-jadwa-gold/80 hover:text-jadwa-gold transition-colors w-full"
+                    className="flex items-center gap-2 px-2.5 py-2 text-sm text-jadwa-tan/80 hover:text-jadwa-tan transition-colors w-full"
                   >
                     <Upload size={14} />
                     Upload documents

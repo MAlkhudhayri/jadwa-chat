@@ -14,8 +14,8 @@ function SourceCard({ source, index }: { source: Source; index: number }) {
   return (
     <div className="bg-gray-50 border border-jadwa-border rounded-lg p-3 text-sm">
       <div className="flex items-center gap-2 mb-1.5">
-        <FileText size={13} className="text-jadwa-gold shrink-0" />
-        <span className="font-medium text-jadwa-navy text-xs truncate">
+        <FileText size={13} className="text-jadwa-tan shrink-0" />
+        <span className="font-medium text-jadwa-brown text-xs truncate">
           {source.filename || "Unknown source"}
         </span>
         {source.page && (
@@ -43,13 +43,13 @@ export default function ChatMessage({ message }: ChatMessageProps) {
       <div
         className={cn(
           "w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1",
-          isUser ? "bg-jadwa-navy" : "bg-jadwa-gold"
+          isUser ? "bg-jadwa-brown" : "bg-jadwa-tan"
         )}
       >
         {isUser ? (
           <User size={15} className="text-white" />
         ) : (
-          <Bot size={15} className="text-jadwa-navy-dark" />
+          <Bot size={15} className="text-jadwa-brown-dark" />
         )}
       </div>
 
@@ -75,7 +75,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
           <div className="mt-2">
             <button
               onClick={() => setShowSources(!showSources)}
-              className="flex items-center gap-1.5 text-xs text-jadwa-slate hover:text-jadwa-navy transition-colors"
+              className="flex items-center gap-1.5 text-xs text-jadwa-slate hover:text-jadwa-brown transition-colors"
             >
               <FileText size={12} />
               {message.sources!.length} source{message.sources!.length > 1 ? "s" : ""}
