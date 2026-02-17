@@ -11,13 +11,14 @@ class SeriesCatalog(Base):
     series_id = Column(String, primary_key=True)
     name = Column(String, nullable=False)
     domain = Column(String, nullable=False)  # oil, bop, fiscal, stability, banking
-    source = Column(String, nullable=False)  # JODI, EIA, SAMA, MoF, NDMC
+    source = Column(String, nullable=False)  # JODI, EIA, SAMA, MoF, NDMC, Upload
     dataset = Column(String, nullable=True)
     unit = Column(String, nullable=True)
     frequency = Column(String, default="monthly")
     source_url = Column(Text, nullable=True)
     description = Column(Text, nullable=True)
     synonyms = Column(Text, nullable=True)  # JSON array as text
+    collection_name = Column(String, nullable=True)  # which database this belongs to
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
                         onupdate=lambda: datetime.now(timezone.utc))

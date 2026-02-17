@@ -119,11 +119,33 @@ export interface TimeSeriesUploadResponse {
 
 export async function uploadTimeSeriesFile(
   file: File,
+  collectionName: string,
   source?: string
 ): Promise<TimeSeriesUploadResponse> {
   const formData = new FormData();
   formData.append("file", file);
+  formData.append("collection_name", collectionName);
   if (source) formData.append("source", source);
+
+  const res = await fetch(`${API_BASE}/upload/`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to upload file");
+  }
+  return res.json();
+}
+
+// Unified smart upload — auto-routes CSV→SQLite, docs→Qdrant
+export async function smartUpload(
+  file: File,
+  collectionName: string,
+): Promise<any> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("collection_name", collectionName);
 
   const res = await fetch(`${API_BASE}/upload/`, {
     method: "POST",

@@ -13,14 +13,27 @@ logger = logging.getLogger(__name__)
 
 
 class SeriesDiscoveryService:
-    async def search(self, query: str, top_k: int = 5) -> List[dict]:
-        """Search for matching series using text matching + synonym search."""
+    async def search(self, query: str, top_k: int = 5,
+                     collection_name: Optional[str] = None) -> List[dict]:
+        """Search for matching series using text matching + synonym search.
+        
+        If collection_name is provided, only search series in that collection
+        (plus pre-loaded series with no collection). If 'all-databases' or None, search all.
+        """
         query_lower = query.lower().strip()
         factory = await get_session_factory()
         session = factory()
 
         try:
-            result = await session.execute(select(SeriesCatalog))
+            stmt = select(SeriesCatalog)
+            if collection_name and collection_name != "all-databases":
+                # Include series from this collection AND pre-loaded ones (no collection)
+                stmt = stmt.where(
+                    (SeriesCatalog.collection_name == collection_name) |
+                    (SeriesCatalog.collection_name == None) |
+                    (SeriesCatalog.collection_name == "")
+                )
+            result = await session.execute(stmt)
             all_series = result.scalars().all()
 
             scored = []

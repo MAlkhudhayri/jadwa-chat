@@ -2,11 +2,12 @@ import logging
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from app.models.schemas import CollectionCreate, CollectionInfo, CollectionListResponse
 from app.services.vectorstore import get_vectorstore_service
 from app.core.database import CollectionMeta, get_session_factory
+from app.models.timeseries import SeriesCatalog, Observation
 
 logger = logging.getLogger(__name__)
 
@@ -34,21 +35,68 @@ async def _save_description(name: str, description: Optional[str]) -> None:
         await session.commit()
 
 
+async def _get_ts_count(collection_name: str) -> int:
+    """Count time series observations for a collection."""
+    try:
+        factory = await get_session_factory()
+        session = factory()
+        try:
+            result = await session.execute(
+                select(func.count(Observation.id))
+                .join(SeriesCatalog, Observation.series_id == SeriesCatalog.series_id)
+                .where(SeriesCatalog.collection_name == collection_name)
+            )
+            return result.scalar() or 0
+        finally:
+            await session.close()
+    except Exception:
+        return 0
+
+
 @router.get("/", response_model=CollectionListResponse)
 async def list_collections():
-    """List all available collections."""
+    """List all available collections (Qdrant + virtual All Databases)."""
     try:
         vs = get_vectorstore_service()
         collections = vs.list_collections()
 
         result = []
+        total_docs = 0
+
         for col in collections:
             desc = await _get_description(col["name"])
+            ts_count = await _get_ts_count(col["name"])
+            doc_count = col["document_count"] + ts_count
+            total_docs += doc_count
             result.append(CollectionInfo(
                 name=col["name"],
-                document_count=col["document_count"],
+                document_count=doc_count,
                 description=desc,
             ))
+
+        # Also count time series with no collection (pre-loaded data)
+        factory = await get_session_factory()
+        session = factory()
+        try:
+            preloaded = await session.execute(
+                select(func.count(Observation.id))
+                .join(SeriesCatalog, Observation.series_id == SeriesCatalog.series_id)
+                .where(
+                    (SeriesCatalog.collection_name == None) |
+                    (SeriesCatalog.collection_name == "")
+                )
+            )
+            preloaded_count = preloaded.scalar() or 0
+            total_docs += preloaded_count
+        finally:
+            await session.close()
+
+        # Add "All Databases" virtual entry at the top
+        result.insert(0, CollectionInfo(
+            name="all-databases",
+            document_count=total_docs,
+            description="Query across all databases and pre-loaded data",
+        ))
 
         return CollectionListResponse(collections=result)
     except Exception as e:

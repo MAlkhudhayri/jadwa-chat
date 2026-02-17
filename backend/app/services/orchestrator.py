@@ -121,7 +121,9 @@ class Orchestrator:
         doc_sources = []
 
         if intent in ("data", "mixed"):
-            data_context, series_used, tools_called, citations = await self._handle_data(question)
+            data_context, series_used, tools_called, citations = await self._handle_data(
+                question, collection_name=collection_name
+            )
 
         # For document/mixed intent with a collection, also query document RAG
         if intent in ("document", "mixed") and collection_name:
@@ -162,10 +164,13 @@ class Orchestrator:
             "sources": [s.model_dump() if hasattr(s, 'model_dump') else s for s in doc_sources],
         }
 
-    async def _handle_data(self, question: str) -> tuple:
+    async def _handle_data(self, question: str,
+                           collection_name: Optional[str] = None) -> tuple:
         """Handle data/numeric questions via series discovery + analytics."""
-        # 1. Discover relevant series
-        candidates = await self.discovery.search(question, top_k=3)
+        # 1. Discover relevant series (scoped to collection)
+        candidates = await self.discovery.search(
+            question, top_k=3, collection_name=collection_name
+        )
         if not candidates:
             return "No matching time series found.", [], [], []
 

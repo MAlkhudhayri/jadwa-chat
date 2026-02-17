@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Menu, Database, AlertTriangle } from "lucide-react";
+import { Menu, Database, AlertTriangle, Layers } from "lucide-react";
+
+const ALL_DATABASES_KEY = "all-databases";
 import Sidebar from "@/components/Sidebar";
 import ChatMessage from "@/components/ChatMessage";
 import ChatInput from "@/components/ChatInput";
@@ -257,14 +259,23 @@ export default function Home() {
 
           {activeCollection ? (
             <div className="flex items-center gap-2">
-              <Database size={16} className="text-jadwa-gold" />
+              {activeCollection === ALL_DATABASES_KEY ? (
+                <Layers size={16} className="text-jadwa-gold" />
+              ) : (
+                <Database size={16} className="text-jadwa-gold" />
+              )}
               <span className="font-medium text-sm text-jadwa-navy">
-                {activeCollection}
+                {activeCollection === ALL_DATABASES_KEY ? "All Databases" : activeCollection}
               </span>
               <span className="text-xs text-gray-400">
                 {collections.find((c) => c.name === activeCollection)?.document_count || 0}{" "}
-                chunks
+                items
               </span>
+              {activeCollection === ALL_DATABASES_KEY && (
+                <span className="text-[10px] bg-jadwa-gold/10 text-jadwa-gold-dark px-1.5 py-0.5 rounded font-medium">
+                  Cross-DB
+                </span>
+              )}
             </div>
           ) : (
             <span className="text-sm text-gray-400">
@@ -336,13 +347,15 @@ export default function Home() {
               ? "Select a database from the sidebar to start chatting..."
               : isStreaming
               ? "JadwaChat is thinking..."
-              : `Ask about documents in "${activeCollection}"...`
+              : activeCollection === ALL_DATABASES_KEY
+              ? "Ask across all databases..."
+              : `Ask about "${activeCollection}"...`
           }
         />
       </main>
 
-      {/* Upload Modal */}
-      {activeCollection && (
+      {/* Upload Modal — not available on "All Databases" */}
+      {activeCollection && activeCollection !== ALL_DATABASES_KEY && (
         <UploadModal
           collectionName={activeCollection}
           isOpen={uploadOpen}

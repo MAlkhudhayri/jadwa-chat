@@ -11,6 +11,7 @@ import {
   Upload,
   X,
   FolderOpen,
+  Layers,
 } from "lucide-react";
 import { Collection, Conversation } from "@/types";
 import { cn, formatDate, truncate } from "@/lib/utils";
@@ -121,35 +122,51 @@ export default function Sidebar({
 
             {collectionExpanded && (
               <div className="space-y-0.5 mb-2">
-                {collections.map((col) => (
-                  <div
-                    key={col.name}
-                    className={cn(
-                      "group flex items-center justify-between px-2.5 py-2 rounded-lg text-sm cursor-pointer transition-colors",
-                      activeCollection === col.name
-                        ? "bg-white/15 text-white"
-                        : "text-white/70 hover:bg-white/8 hover:text-white"
-                    )}
-                    onClick={() => onSelectCollection(col.name)}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <FolderOpen size={14} className="shrink-0 text-jadwa-gold" />
-                      <span className="truncate">{col.name}</span>
-                      <span className="text-[10px] text-white/30 shrink-0">
-                        {col.document_count}
-                      </span>
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteCollection(col.name);
-                      }}
-                      className="hidden group-hover:block text-white/30 hover:text-red-400 transition-colors"
+                {collections.map((col) => {
+                  const isAllDb = col.name === "all-databases";
+                  return (
+                    <div
+                      key={col.name}
+                      className={cn(
+                        "group flex items-center justify-between px-2.5 py-2 rounded-lg text-sm cursor-pointer transition-colors",
+                        activeCollection === col.name
+                          ? "bg-white/15 text-white"
+                          : "text-white/70 hover:bg-white/8 hover:text-white"
+                      )}
+                      onClick={() => onSelectCollection(col.name)}
                     >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                ))}
+                      <div className="flex items-center gap-2 min-w-0">
+                        {isAllDb ? (
+                          <Layers size={14} className="shrink-0 text-jadwa-gold" />
+                        ) : (
+                          <FolderOpen size={14} className="shrink-0 text-jadwa-gold" />
+                        )}
+                        <span className="truncate">
+                          {isAllDb ? "All Databases" : col.name}
+                        </span>
+                        <span className="text-[10px] text-white/30 shrink-0">
+                          {col.document_count}
+                        </span>
+                        {isAllDb && (
+                          <span className="text-[9px] bg-jadwa-gold/20 text-jadwa-gold px-1 py-0.5 rounded">
+                            ALL
+                          </span>
+                        )}
+                      </div>
+                      {!isAllDb && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteCollection(col.name);
+                          }}
+                          className="hidden group-hover:block text-white/30 hover:text-red-400 transition-colors"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
 
                 {!showNewCollection ? (
                   <button

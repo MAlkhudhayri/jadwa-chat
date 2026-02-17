@@ -12,8 +12,7 @@ import {
   Database,
   FileSearch,
 } from "lucide-react";
-import { uploadDocument, uploadTimeSeriesFile } from "@/lib/api";
-import { UploadResponse } from "@/types";
+import { smartUpload } from "@/lib/api";
 
 interface UploadModalProps {
   collectionName: string;
@@ -82,14 +81,8 @@ export default function UploadModal({
       );
 
       try {
-        let result;
-        if (files[i].fileType === "timeseries") {
-          // CSV/Excel → SQLite time series
-          result = await uploadTimeSeriesFile(files[i].file);
-        } else {
-          // PDF/DOCX/TXT/MD → Qdrant document embeddings
-          result = await uploadDocument(files[i].file, collectionName);
-        }
+        // Smart upload — backend auto-routes based on file type
+        const result = await smartUpload(files[i].file, collectionName);
         setFiles((prev) =>
           prev.map((f, idx) =>
             idx === i ? { ...f, status: "success" as const, result } : f
