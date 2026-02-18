@@ -13,6 +13,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/collections", tags=["Collections"])
 
+# Internal Qdrant collections that should NOT appear in the sidebar
+INTERNAL_COLLECTIONS = {"series_catalog_embeddings"}
+
 
 async def _get_description(name: str) -> Optional[str]:
     """Get collection description from metadata DB."""
@@ -64,6 +67,10 @@ async def list_collections():
         total_docs = 0
 
         for col in collections:
+            # Skip internal collections
+            if col["name"] in INTERNAL_COLLECTIONS:
+                continue
+
             desc = await _get_description(col["name"])
             ts_count = await _get_ts_count(col["name"])
             doc_count = col["document_count"] + ts_count
