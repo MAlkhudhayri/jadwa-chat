@@ -2,6 +2,9 @@
 
 AI powered analyst chat system built for Jadwa Investment. A production grade RAG (Retrieval Augmented Generation) platform that lets analysts query documents, time series data, and the web through a single conversational interface.
 
+![Uploading jadwachat_techstack.drawio.png…]()
+
+
 ## Features
 
 * **Multi Database Support** Create separate collections for different document sets
