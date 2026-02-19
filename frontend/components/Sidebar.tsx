@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import {
   MessageSquarePlus,
   Database,
@@ -82,8 +83,14 @@ export default function Sidebar({
           <div className="p-4 border-b border-white/10">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-jadwa-tan flex items-center justify-center">
-                  <span className="text-jadwa-brown-dark font-bold text-sm">J</span>
+                <div className="w-8 h-8 rounded-[22%] overflow-hidden shrink-0">
+                  <Image
+                    src="/jadwa-logo.png"
+                    alt="Jadwa"
+                    width={32}
+                    height={32}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 <div>
                   <h1 className="font-semibold text-sm">JadwaChat</h1>

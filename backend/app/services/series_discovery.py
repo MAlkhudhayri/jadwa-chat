@@ -76,10 +76,27 @@ class SeriesDiscoveryService:
         if query in desc_lower:
             score += 3.0
 
-        # Word-level matching
-        query_words = set(query.split())
-        name_words = set(name_lower.split())
-        desc_words = set(desc_lower.split())
+        # Word-level matching (filter out stop words)
+        stop_words = {
+            "a", "an", "the", "is", "was", "were", "are", "be", "been", "being",
+            "have", "has", "had", "do", "does", "did", "will", "would", "shall",
+            "should", "may", "might", "must", "can", "could", "to", "of", "in",
+            "for", "on", "with", "at", "by", "from", "as", "into", "through",
+            "during", "before", "after", "and", "but", "or", "nor", "not", "no",
+            "so", "yet", "both", "either", "neither", "each", "every", "all",
+            "any", "few", "more", "most", "other", "some", "such", "only",
+            "own", "same", "than", "too", "very", "just", "because", "about",
+            "between", "how", "what", "which", "who", "whom", "this", "that",
+            "these", "those", "am", "it", "its", "they", "them", "their",
+            "we", "our", "he", "she", "him", "her", "me", "my", "i", "you",
+            "your", "if", "then", "up", "out", "off", "over", "under",
+            "again", "further", "once", "here", "there", "when", "where",
+            "why", "much", "many", "tell", "please", "give", "show", "latest",
+            "current", "today", "now", "last", "recent",
+        }
+        query_words = set(query.split()) - stop_words
+        name_words = set(name_lower.split()) - stop_words
+        desc_words = set(desc_lower.split()) - stop_words
 
         # Name word overlap
         name_overlap = query_words & name_words

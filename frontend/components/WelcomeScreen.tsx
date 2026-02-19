@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Database, Upload, MessageSquare, Sparkles } from "lucide-react";
 
 interface WelcomeScreenProps {
@@ -17,8 +18,14 @@ export default function WelcomeScreen({
     <div className="flex-1 flex items-center justify-center p-8">
       <div className="max-w-lg text-center">
         {/* Logo */}
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-jadwa-brown to-jadwa-brown-light flex items-center justify-center mx-auto mb-6 shadow-lg">
-          <span className="text-jadwa-tan font-bold text-2xl">J</span>
+        <div className="w-16 h-16 rounded-[22%] overflow-hidden mx-auto mb-6 shadow-lg">
+          <Image
+            src="/jadwa-logo.png"
+            alt="Jadwa Investment"
+            width={64}
+            height={64}
+            className="w-full h-full object-cover"
+          />
         </div>
 
         <h2 className="text-2xl font-bold text-jadwa-brown mb-2">

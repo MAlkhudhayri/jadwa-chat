@@ -121,3 +121,210 @@
   @apply border-jadwa-tan bg-jadwa-tan/5;
 }
 
+/* ═══════════════════════════════════════════════════════
+   Splash Screen — Jadwa-branded entry animation
+   ═══════════════════════════════════════════════════════ */
+
+.splash-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #F5F3F0;
+  transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.splash-fade-out {
+  opacity: 0;
+  transform: scale(1.05);
+  pointer-events: none;
+}
+
+/* ── Waves ─────────────────────────────────────────── */
+
+.splash-waves {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 40%;
+  pointer-events: none;
+}
+
+.splash-wave {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 200%;
+  height: 100%;
+}
+
+.splash-wave-1 {
+  animation: waveSlide 7s ease-in-out infinite alternate;
+}
+
+.splash-wave-2 {
+  animation: waveSlide 5s ease-in-out infinite alternate-reverse;
+  animation-delay: -1.5s;
+}
+
+.splash-wave-3 {
+  animation: waveSlide 9s ease-in-out infinite alternate;
+  animation-delay: -3s;
+}
+
+@keyframes waveSlide {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+/* ── Floating particles (sand dust) ────────────────── */
+
+.splash-particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.splash-particle {
+  position: absolute;
+  bottom: 10%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(139,115,85,0.85) 0%, rgba(160,139,114,0.45) 100%);
+  animation: particleFloat linear infinite;
+}
+
+@keyframes particleFloat {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.6;
+  }
+  80% {
+    opacity: 0.3;
+  }
+  100% {
+    transform: translateY(-70vh) scale(0.3);
+    opacity: 0;
+  }
+}
+
+/* ── Center content ────────────────────────────────── */
+
+.splash-center {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+/* Glow ring */
+.splash-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 200px;
+  height: 200px;
+  transform: translate(-50%, -60%);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(139, 115, 85, 0.08) 0%,
+    rgba(139, 115, 85, 0.03) 50%,
+    transparent 70%
+  );
+  animation: glowPulse 2.5s ease-in-out infinite;
+}
+
+@keyframes glowPulse {
+  0%, 100% {
+    transform: translate(-50%, -60%) scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translate(-50%, -60%) scale(1.15);
+    opacity: 1;
+  }
+}
+
+/* Logo entrance */
+.splash-logo {
+  animation: logoEnter 1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  opacity: 0;
+  transform: translateY(30px) scale(0.7);
+}
+
+@keyframes logoEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(30px) scale(0.7);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-5px) scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Title entrance */
+.splash-title {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 2.2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-top: 4px;
+  animation: textFadeUp 0.8s ease-out 0.4s forwards;
+  opacity: 0;
+  transform: translateY(15px);
+}
+
+.splash-title-jadwa {
+  color: #6B5840;
+}
+
+.splash-title-chat {
+  color: #A08B72;
+  font-weight: 400;
+}
+
+/* Subtitle */
+.splash-subtitle {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 0.85rem;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(107, 88, 64, 0.45);
+  margin-top: 6px;
+  animation: textFadeUp 0.8s ease-out 0.7s forwards;
+  opacity: 0;
+  transform: translateY(15px);
+}
+
+@keyframes textFadeUp {
+  0% {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+

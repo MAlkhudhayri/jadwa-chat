@@ -27,8 +27,8 @@ class Settings(BaseSettings):
     APP_VERSION: str = "1.0.0"
     DATABASE_URL: str = "sqlite+aiosqlite:///./jadwachat.db"
 
-    # Security
-    ALLOWED_ORIGINS: str = "*"  # Comma-separated list, or * for all
+    # Security — restrict to local dev by default; override in .env for production
+    ALLOWED_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
     MAX_UPLOAD_SIZE_MB: int = 50
 
     class Config:

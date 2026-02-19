@@ -121,13 +121,31 @@ class HistoryService:
         self,
         conversation_id: str,
         limit: int = 10,
+        max_chars: int = 12000,
     ) -> List[dict]:
-        """Get conversation history formatted for the LLM."""
+        """Get conversation history formatted for the LLM.
+
+        Args:
+            limit: Maximum number of messages to fetch.
+            max_chars: Approximate character budget for history.  Keeps the
+                       most recent messages that fit, preventing token overflow
+                       when individual messages are very long.
+        """
         messages = await self.get_conversation_messages(conversation_id, limit)
-        return [
+        formatted = [
             {"role": msg.role.value, "content": msg.content}
             for msg in messages
         ]
+
+        # Trim from the oldest end to stay within the character budget.
+        # Always keep at least the last 2 messages (1 user + 1 assistant)
+        # so the LLM has immediate prior context for follow-ups.
+        total_chars = sum(len(m["content"]) for m in formatted)
+        while len(formatted) > 2 and total_chars > max_chars:
+            removed = formatted.pop(0)
+            total_chars -= len(removed["content"])
+
+        return formatted
 
     async def list_conversations(
         self,

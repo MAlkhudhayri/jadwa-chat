@@ -152,7 +152,9 @@ class VectorStoreService:
         query: str,
         top_k: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
-        """Perform similarity search and return results with scores."""
+        """Perform similarity search and return results with scores.
+        Runs in a thread pool to avoid blocking the event loop during embedding + search.
+        """
         k = top_k or self.settings.TOP_K
 
         store = QdrantVectorStore(
@@ -161,7 +163,10 @@ class VectorStoreService:
             embedding=self.embeddings,
         )
 
-        results = store.similarity_search_with_score(query, k=k)
+        # Blocking I/O: embedding generation + Qdrant query
+        results = await asyncio.to_thread(
+            store.similarity_search_with_score, query, k=k
+        )
 
         return [
             {
@@ -171,6 +176,72 @@ class VectorStoreService:
             }
             for doc, score in results
         ]
+
+    # Internal collections that should be excluded from cross-collection search
+    INTERNAL_COLLECTIONS = {"series_catalog_embeddings"}
+
+    async def similarity_search_all(
+        self,
+        query: str,
+        top_k: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """Search across ALL user-facing Qdrant collections in parallel, merge & rank."""
+        k = top_k or self.settings.TOP_K
+
+        try:
+            collections = self.list_collections()
+        except Exception as e:
+            logger.error(f"Failed to list collections for cross-search: {e}")
+            return []
+
+        # Filter to searchable collections
+        searchable = [
+            col for col in collections
+            if col["name"] not in self.INTERNAL_COLLECTIONS
+            and not col["name"].startswith("series_catalog_embeddings")
+            and col.get("document_count", 0) > 0
+        ]
+
+        if not searchable:
+            return []
+
+        async def _search_one(name: str) -> List[Dict[str, Any]]:
+            """Search a single collection (runs in thread pool)."""
+            try:
+                store = QdrantVectorStore(
+                    client=self.client,
+                    collection_name=name,
+                    embedding=self.embeddings,
+                )
+                results = await asyncio.to_thread(
+                    store.similarity_search_with_score, query, k=k
+                )
+                hits = []
+                for doc, score in results:
+                    meta = doc.metadata.copy()
+                    meta["_collection_name"] = name
+                    hits.append({
+                        "content": doc.page_content,
+                        "metadata": meta,
+                        "score": score,
+                    })
+                return hits
+            except Exception as e:
+                logger.warning(f"Cross-search failed for '{name}': {e}")
+                return []
+
+        # Run all collection searches in parallel
+        batch_results = await asyncio.gather(
+            *[_search_one(col["name"]) for col in searchable]
+        )
+
+        all_results = [hit for hits in batch_results for hit in hits]
+
+        # Sort by score (descending for cosine) and return top-k
+        all_results.sort(key=lambda x: x["score"], reverse=True)
+        logger.info(f"Cross-collection search: {len(all_results)} total results "
+                    f"from {len(searchable)} collections (parallel), returning top {k}")
+        return all_results[:k]
 
     async def delete_by_metadata(
         self,

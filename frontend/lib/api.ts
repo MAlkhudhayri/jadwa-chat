@@ -103,6 +103,88 @@ export async function askQuestion(
   return res.json();
 }
 
+// ─── Streaming Ask (SSE) ──────────────────────────────────
+
+export interface AskStreamCallbacks {
+  onMetadata?: (data: { intent: string; series_used: string[]; tools_called: string[]; knowledge_source: string }) => void;
+  onSources?: (sources: Source[], conversationId: string) => void;
+  onToken?: (token: string) => void;
+  onDone?: (data: { conversation_id: string; citations: string }) => void;
+  onError?: (message: string) => void;
+}
+
+export async function askQuestionStream(
+  question: string,
+  collectionName: string | undefined,
+  conversationId: string | undefined,
+  callbacks: AskStreamCallbacks,
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/ask/stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      question,
+      collection_name: collectionName || undefined,
+      conversation_id: conversationId || undefined,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to get streaming answer");
+  }
+
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error("No response body");
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    let currentEvent = "";
+    for (const line of lines) {
+      if (line.startsWith("event:")) {
+        currentEvent = line.slice(6).trim();
+      } else if (line.startsWith("data:")) {
+        const dataStr = line.slice(5).trim();
+        if (!dataStr) continue;
+
+        try {
+          const data = JSON.parse(dataStr);
+
+          switch (currentEvent || data.type) {
+            case "metadata":
+              callbacks.onMetadata?.(data);
+              break;
+            case "sources":
+              callbacks.onSources?.(data.sources || [], data.conversation_id || "");
+              break;
+            case "token":
+              callbacks.onToken?.(data.content || "");
+              break;
+            case "done":
+              callbacks.onDone?.(data);
+              break;
+            case "error":
+              callbacks.onError?.(data.message || "Unknown error");
+              break;
+          }
+        } catch {
+          // Skip malformed lines
+        }
+        currentEvent = "";
+      }
+    }
+  }
+}
+
 // ─── Upload (Time Series CSV) ─────────────────────────
 
 export interface TimeSeriesUploadResponse {

@@ -1,9 +1,44 @@
+# ─── Python ───────────────────────────────────
 *.pyc
 __pycache__/
+*.egg-info/
+*.egg
+dist/
+build/
 venv/
+.venv/
+*.pyo
+
+# ─── Environment & Secrets ────────────────────
 .env
+.env.*
+!.env.example
+
+# ─── Database ─────────────────────────────────
 *.db
+*.sqlite3
+
+# ─── Data (raw uploads, user data) ────────────
+data/raw/
+backend/data/raw/uploads/
+
+# ─── Node / Frontend ─────────────────────────
 node_modules/
 .next/
-data/raw/
-*.egg-info/
+tsconfig.tsbuildinfo
+
+# ─── IDE ──────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# ─── Docker ───────────────────────────────────
+docker-compose.override.yml
+
+# ─── Certs ────────────────────────────────────
+*.pem
+*.key
+*.cert
+*.crt

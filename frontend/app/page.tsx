@@ -9,6 +9,7 @@ import ChatMessage from "@/components/ChatMessage";
 import ChatInput from "@/components/ChatInput";
 import UploadModal from "@/components/UploadModal";
 import WelcomeScreen from "@/components/WelcomeScreen";
+import SplashScreen from "@/components/SplashScreen";
 import {
   fetchCollections,
   fetchConversations,
@@ -16,11 +17,14 @@ import {
   createCollection,
   deleteCollection,
   deleteConversation,
-  askQuestion,
+  askQuestionStream,
 } from "@/lib/api";
 import { ChatMessage as ChatMessageType, Collection, Conversation } from "@/types";
 
 export default function Home() {
+  // Splash screen — shown once on first load
+  const [showSplash, setShowSplash] = useState(true);
+
   // State
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -174,38 +178,86 @@ export default function Home() {
     setIsStreaming(true);
     setError(null);
 
+    let pendingCitations = "";
+
     try {
-      // Use orchestrator — routes data queries to SQLite, document queries to Qdrant
-      const result = await askQuestion(
+      await askQuestionStream(
         message,
         activeCollection,
-        activeConversation || undefined
+        activeConversation || undefined,
+        {
+          onSources: (sources, conversationId) => {
+            // Attach sources to the assistant message (immutable update)
+            setMessages((prev) => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (last.role === "assistant") {
+                updated[updated.length - 1] = { ...last, sources };
+              }
+              return updated;
+            });
+          },
+
+          onToken: (token) => {
+            // Append each token to the streaming message (immutable update)
+            setMessages((prev) => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (last.role === "assistant") {
+                updated[updated.length - 1] = {
+                  ...last,
+                  content: last.content + token,
+                };
+              }
+              return updated;
+            });
+          },
+
+          onDone: (data) => {
+            pendingCitations = data.citations || "";
+
+            // Finalize the message (immutable update)
+            setMessages((prev) => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (last.role === "assistant") {
+                updated[updated.length - 1] = {
+                  ...last,
+                  content: pendingCitations
+                    ? last.content + "\n\nCitations:\n" + pendingCitations
+                    : last.content,
+                  isStreaming: false,
+                };
+              }
+              return updated;
+            });
+
+            // Track conversation
+            if (data.conversation_id) {
+              setActiveConversation(data.conversation_id);
+            }
+
+            // Reload conversations
+            if (activeCollection) loadConversations(activeCollection);
+          },
+
+          onError: (errorMessage) => {
+            setError(errorMessage);
+            setMessages((prev) => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (last.role === "assistant" && last.isStreaming) {
+                updated[updated.length - 1] = {
+                  ...last,
+                  content: "Sorry, an error occurred. Please try again.",
+                  isStreaming: false,
+                };
+              }
+              return updated;
+            });
+          },
+        },
       );
-
-      // Update assistant message with full response
-      setMessages((prev) => {
-        const updated = [...prev];
-        const last = updated[updated.length - 1];
-        if (last.role === "assistant") {
-          // Append citations to the answer if present
-          let fullAnswer = result.answer;
-          if (result.citations) {
-            fullAnswer += "\n\nCitations:\n" + result.citations;
-          }
-          last.content = fullAnswer;
-          last.sources = result.sources;
-          last.isStreaming = false;
-        }
-        return updated;
-      });
-
-      // Track conversation
-      if (result.conversation_id) {
-        setActiveConversation(result.conversation_id);
-      }
-
-      // Reload conversations
-      if (activeCollection) loadConversations(activeCollection);
     } catch (err: any) {
       console.error("Chat error:", err);
       setError(err.message || "Failed to send message");
@@ -213,8 +265,11 @@ export default function Home() {
         const updated = [...prev];
         const last = updated[updated.length - 1];
         if (last.role === "assistant" && last.isStreaming) {
-          last.content = "Sorry, an error occurred. Please try again.";
-          last.isStreaming = false;
+          updated[updated.length - 1] = {
+            ...last,
+            content: "Sorry, an error occurred. Please try again.",
+            isStreaming: false,
+          };
         }
         return updated;
       });
@@ -228,6 +283,12 @@ export default function Home() {
   const showWelcome = messages.length === 0;
 
   return (
+    <>
+      {/* Splash screen — auto-dismisses after animation */}
+      {showSplash && (
+        <SplashScreen onFinished={() => setShowSplash(false)} duration={3400} />
+      )}
+
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
       <Sidebar
@@ -364,6 +425,7 @@ export default function Home() {
         />
       )}
     </div>
+    </>
   );
 }
 

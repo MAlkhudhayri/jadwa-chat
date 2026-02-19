@@ -155,44 +155,73 @@ def _transpose_wide_to_tall(df: pd.DataFrame, label_col: str) -> pd.DataFrame:
     return melted
 
 
+def _is_valid_date_column(series: pd.Series) -> bool:
+    """Strictly validate that a series contains actual dates, not random numbers.
+    
+    Rejects columns where values are small floats (e.g., 0.918),
+    large populations, or other numeric data that pd.to_datetime would
+    blindly accept as epoch offsets.
+    """
+    sample = series.dropna().head(20)
+    if len(sample) == 0:
+        return False
+
+    # Check for integer years first (always valid)
+    if all(_looks_like_year(v) for v in sample):
+        return True
+
+    # If values are all numeric, be very suspicious
+    try:
+        numeric_vals = pd.to_numeric(sample, errors="raise")
+        # Small floats (0.0 - 100.0) are NOT dates
+        if numeric_vals.abs().max() < 100:
+            return False
+        # Very large numbers (populations, GDP) are NOT dates
+        if numeric_vals.abs().max() > 1e6:
+            return False
+        # Plain integers in weird ranges are NOT dates
+        return False
+    except (ValueError, TypeError):
+        pass  # Not purely numeric — could be date strings
+
+    # Try parsing as dates and validate the range
+    try:
+        parsed = pd.to_datetime(sample, errors="coerce")
+        valid = parsed.dropna()
+        if len(valid) < len(sample) * 0.5:
+            return False  # Too many failures
+        # Dates should be in reasonable range (1900-2100)
+        min_year = valid.min().year
+        max_year = valid.max().year
+        if min_year < 1900 or max_year > 2100:
+            return False
+        return True
+    except Exception:
+        return False
+
+
 def _detect_date_column(df: pd.DataFrame) -> Optional[str]:
-    """Auto-detect the most likely date column in a tall-format DataFrame."""
+    """Auto-detect the most likely date column in a tall-format DataFrame.
+    
+    Uses strict validation to avoid false positives (e.g., HDI scores,
+    population numbers, or GDP values being mistaken for dates).
+    """
     # 1. Check column names that suggest dates
     date_keywords = ["date", "period", "month", "year", "time", "day", "timestamp"]
     for col in df.columns:
         if any(kw in str(col).lower() for kw in date_keywords):
-            try:
-                pd.to_datetime(df[col].dropna().head(10))
+            if _is_valid_date_column(df[col]):
                 return col
-            except Exception:
-                # Maybe it's integer years
-                sample = df[col].dropna().head(10)
-                if all(_looks_like_year(v) for v in sample):
-                    return col
-                continue
 
-    # 2. Try the first column (common pattern)
-    try:
-        first_col = df.columns[0]
-        sample = df[first_col].dropna().head(10)
-        # Check for integer years first
-        if all(_looks_like_year(v) for v in sample):
-            return first_col
-        pd.to_datetime(sample)
+    # 2. Try the first column (common pattern for time series)
+    first_col = df.columns[0]
+    if _is_valid_date_column(df[first_col]):
         return first_col
-    except Exception:
-        pass
 
     # 3. Try all columns
     for col in df.columns:
-        try:
-            sample = df[col].dropna().head(10)
-            if all(_looks_like_year(v) for v in sample):
-                return col
-            pd.to_datetime(sample)
+        if _is_valid_date_column(df[col]):
             return col
-        except Exception:
-            continue
 
     return None
 
@@ -338,72 +367,170 @@ async def unified_upload(
 async def _handle_document_upload(
     content: bytes, filename: str, collection_name: str, ext: str
 ):
-    """Process document → chunk → embed → store in Qdrant."""
+    """Process document with Docling → text chunks to Qdrant + tables to SQLite."""
     from langchain_core.documents import Document
-    from langchain_text_splitters import RecursiveCharacterTextSplitter
+    from app.services.doc_processor import get_docling_processor
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
         tmp.write(content)
         tmp_path = tmp.name
 
     try:
-        # Read document text
-        if ext == ".pdf":
-            try:
-                from pypdf import PdfReader
-                reader = PdfReader(tmp_path)
-                text = "\n\n".join(page.extract_text() or "" for page in reader.pages)
-            except ImportError:
-                text = content.decode("utf-8", errors="ignore")
-        elif ext in (".txt", ".md"):
-            text = content.decode("utf-8", errors="ignore")
-        elif ext == ".docx":
-            try:
-                import docx
-                doc = docx.Document(tmp_path)
-                text = "\n\n".join(p.text for p in doc.paragraphs if p.text.strip())
-            except ImportError:
-                text = content.decode("utf-8", errors="ignore")
-        else:
-            text = content.decode("utf-8", errors="ignore")
+        # ─── Process with Docling ─────────────────────────────
+        processor = get_docling_processor()
+        result = await processor.process(tmp_path, filename)
 
-        if not text.strip():
-            raise HTTPException(status_code=400, detail="No text content found in document")
+        if not result.chunks and not result.tables:
+            raise HTTPException(status_code=400, detail="No content found in document")
 
-        # Chunk the text
-        splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=200,
-            separators=["\n\n", "\n", ". ", " ", ""],
-        )
-        chunks = splitter.split_text(text)
+        # ─── Store text chunks in Qdrant ──────────────────────
+        documents = []
+        for chunk in result.chunks:
+            metadata = {
+                "source": filename,
+                "chunk_index": chunk.chunk_index,
+                "total_chunks": chunk.total_chunks,
+                "collection": collection_name,
+                "chunk_type": chunk.chunk_type,
+            }
+            if chunk.page is not None:
+                metadata["page"] = chunk.page
+            if chunk.section:
+                metadata["section"] = chunk.section
 
-        documents = [
-            Document(
-                page_content=chunk,
-                metadata={
-                    "source": filename,
-                    "chunk_index": i,
-                    "total_chunks": len(chunks),
-                    "collection": collection_name,
-                },
+            documents.append(Document(
+                page_content=chunk.text,
+                metadata=metadata,
+            ))
+
+        num_added = 0
+        if documents:
+            vs = get_vectorstore_service()
+            num_added = await vs.add_documents(collection_name, documents)
+
+        # ─── Extract tables with numerical data → SQLite ──────
+        tables_stored = 0
+        table_series = []
+        for table in result.tables:
+            stored = await _store_table_as_timeseries(
+                table, filename, collection_name
             )
-            for i, chunk in enumerate(chunks)
-        ]
+            if stored:
+                tables_stored += 1
+                table_series.extend(stored)
 
-        # Store in Qdrant
-        vs = get_vectorstore_service()
-        num_added = await vs.add_documents(collection_name, documents)
-
-        return {
+        response = {
             "type": "document",
             "filename": filename,
             "collection_name": collection_name,
+            "processor": "docling",
             "chunks_created": num_added,
+            "pages": result.num_pages,
             "status": "success",
         }
+
+        if tables_stored > 0:
+            response["tables_extracted"] = tables_stored
+            response["table_series"] = table_series
+
+        return response
+
     finally:
         os.unlink(tmp_path)
+
+
+async def _store_table_as_timeseries(
+    table, filename: str, collection_name: str
+) -> Optional[List[dict]]:
+    """If a Docling-extracted table has dates + numbers, store in SQLite.
+    
+    Returns list of series created, or None if the table isn't time-series-like.
+    """
+    try:
+        import pandas as pd
+
+        if not table.headers or not table.rows:
+            return None
+
+        # Build a DataFrame from the extracted table
+        df = pd.DataFrame(table.rows, columns=table.headers)
+
+        if df.empty or len(df) < 2:
+            return None
+
+        # Try to detect a date column
+        date_col = _detect_date_column(df)
+        if not date_col:
+            return None  # No dates = not time series
+
+        # Detect numeric columns
+        numeric_cols = _detect_numeric_columns(df, date_col)
+        if not numeric_cols:
+            return None
+
+        # Parse dates
+        df[date_col] = _parse_dates(df[date_col])
+        df = df.dropna(subset=[date_col])
+
+        if df.empty:
+            return None
+
+        # Build observations
+        observations = []
+        series_created = []
+        from app.services.connectors.base import ParsedObservation
+
+        for col in numeric_cols:
+            raw_slug = _slugify(col)
+            series_id = f"{_slugify(collection_name)}__{raw_slug}"
+
+            await _auto_register_series(
+                series_id=series_id,
+                name=col.strip(),
+                collection_name=collection_name,
+                filename=filename,
+            )
+            series_created.append({"series_id": series_id, "column": col})
+
+            numeric_data = pd.to_numeric(df[col], errors="coerce")
+            for _, row in df.iterrows():
+                try:
+                    date_val = row[date_col].date()
+                    value = float(numeric_data[row.name]) if pd.notna(numeric_data[row.name]) else None
+                    if value is not None:
+                        observations.append(ParsedObservation(
+                            series_id=series_id,
+                            date=date_val,
+                            value=value,
+                        ))
+                except (ValueError, TypeError, AttributeError):
+                    continue
+
+        if not observations:
+            return None
+
+        # Load into SQLite
+        service = get_ingestion_service()
+        run_id = await service._create_run("Docling-Table", filename)
+        load_result = await service.load_observations(observations, run_id)
+        await service._finish_run(
+            run_id=run_id,
+            status="success",
+            rows_inserted=load_result["inserted"],
+            rows_updated=load_result["updated"],
+            rows_skipped=load_result["skipped"],
+            file_path=filename,
+        )
+
+        logger.info(
+            f"Docling table → SQLite: {load_result['inserted']} rows, "
+            f"{len(series_created)} series from '{filename}'"
+        )
+        return series_created
+
+    except Exception as e:
+        logger.warning(f"Failed to store table as time series: {e}")
+        return None
 
 
 # ──────────────────────────────────────────────────────
@@ -432,15 +559,22 @@ async def _handle_timeseries_upload(
         logger.info(f"Read {filename}: {df.shape[0]} rows × {df.shape[1]} cols. "
                     f"Columns: {list(df.columns)}")
 
-        # ─── DETECT FORMAT: WIDE or TALL ───────────────
+        # ─── DETECT FORMAT: WIDE, TALL, or ENTITY ──────
         is_wide, label_col = _column_headers_are_dates(df.columns)
 
         if is_wide:
             logger.info(f"Detected WIDE format (label col: '{label_col}')")
             return await _handle_wide_format(df, label_col, filename, collection_name, source)
-        else:
-            logger.info("Detected TALL format")
+
+        # Check for date column (tall time series)
+        date_col = _detect_date_column(df)
+        if date_col:
+            logger.info(f"Detected TALL format (date col: '{date_col}')")
             return await _handle_tall_format(df, filename, collection_name, source)
+
+        # No dates found → treat as entity/cross-sectional data → Qdrant
+        logger.info("No date column found — treating as entity/reference data → Qdrant")
+        return await _handle_entity_data(df, filename, collection_name)
     finally:
         os.unlink(tmp_path)
 
@@ -511,6 +645,135 @@ async def _handle_wide_format(
         "total": load_result["total"],
         "status": "success",
     }
+
+
+async def _handle_entity_data(
+    df: pd.DataFrame, filename: str, collection_name: str
+):
+    """Handle entity/cross-sectional data (no dates) → convert rows to text → Qdrant.
+
+    Example: countries × GDP, population, CO2, etc.
+    Each row becomes a rich text document embedded in Qdrant so the user
+    can ask "What is Denmark's GDP?" and get a RAG answer.
+    """
+    from langchain_core.documents import Document
+
+    # Detect the best "label" column — first non-numeric text column
+    label_col = _detect_label_column(df)
+    logger.info(f"Entity data label column: '{label_col}'")
+
+    documents = []
+    for idx, row in df.iterrows():
+        # Build a rich text description for this entity
+        label = str(row[label_col]).strip() if label_col else f"Row {idx + 1}"
+
+        parts = [f"**{label}**\n"]
+        for col in df.columns:
+            if col == label_col:
+                continue
+            val = row[col]
+            if pd.isna(val):
+                continue
+            # Format numbers nicely
+            if isinstance(val, float):
+                if abs(val) >= 1e9:
+                    formatted = f"{val/1e9:,.2f} billion"
+                elif abs(val) >= 1e6:
+                    formatted = f"{val/1e6:,.2f} million"
+                elif abs(val) >= 1000:
+                    formatted = f"{val:,.2f}"
+                elif abs(val) < 0.01 and val != 0:
+                    formatted = f"{val:.6f}"
+                else:
+                    formatted = f"{val:,.4f}"
+            else:
+                formatted = str(val)
+            parts.append(f"- {col}: {formatted}")
+
+        text = "\n".join(parts)
+
+        documents.append(Document(
+            page_content=text,
+            metadata={
+                "source": filename,
+                "entity": label,
+                "row_index": int(idx),
+                "total_rows": len(df),
+                "collection": collection_name,
+                "data_type": "entity_row",
+            },
+        ))
+
+    if not documents:
+        raise HTTPException(status_code=400, detail="No valid rows found in entity data")
+
+    # Store in Qdrant
+    vs = get_vectorstore_service()
+    num_added = await vs.add_documents(collection_name, documents)
+
+    # Build list of entities for the response
+    entities = []
+    if label_col:
+        entities = df[label_col].dropna().astype(str).tolist()
+
+    return {
+        "type": "entity_data",
+        "filename": filename,
+        "collection_name": collection_name,
+        "format_detected": "entity/cross-sectional (no dates)",
+        "label_column": label_col,
+        "entities": entities[:20],  # Show first 20
+        "total_entities": len(df),
+        "columns": len(df.columns),
+        "chunks_created": num_added,
+        "status": "success",
+    }
+
+
+def _detect_label_column(df: pd.DataFrame) -> Optional[str]:
+    """Find the best label/entity column (text column with unique values).
+
+    Prefers columns named 'country', 'name', 'entity', etc.
+    Falls back to the first text column with mostly unique values.
+    """
+    label_keywords = ["country", "name", "entity", "company", "city", "region",
+                      "state", "sector", "category", "label", "item", "description"]
+
+    text_cols = []
+    for col in df.columns:
+        # Skip numeric-only columns
+        try:
+            pd.to_numeric(df[col], errors="raise")
+            continue  # It's fully numeric, skip
+        except (ValueError, TypeError):
+            pass
+
+        # Check if it's mostly text
+        non_null = df[col].dropna()
+        if len(non_null) == 0:
+            continue
+        numeric_ratio = pd.to_numeric(non_null, errors="coerce").notna().sum() / len(non_null)
+        if numeric_ratio < 0.5:
+            text_cols.append(col)
+
+    if not text_cols:
+        return None
+
+    # Prefer columns with label-like names
+    for col in text_cols:
+        if any(kw in str(col).lower() for kw in label_keywords):
+            return col
+
+    # Fall back to the text column with the highest uniqueness ratio
+    best_col = None
+    best_ratio = 0
+    for col in text_cols:
+        unique_ratio = df[col].nunique() / len(df)
+        if unique_ratio > best_ratio:
+            best_ratio = unique_ratio
+            best_col = col
+
+    return best_col
 
 
 async def _handle_tall_format(
