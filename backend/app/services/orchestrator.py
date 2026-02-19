@@ -251,9 +251,12 @@ class Orchestrator:
             if search_query != question:
                 logger.info(f"Rewritten search query: {search_query[:100]}")
 
-        # ─── 1. Query Qdrant for document/entity context (skip for general) ─
-        # Always search ALL collections so every tab has full access
-        if intent != "general":
+        # ─── 1. Query Qdrant for document/entity context ──────────────
+        # Always search unless it's a short greeting (≤3 words + general).
+        # This prevents misclassified questions from losing Qdrant context.
+        is_short_greeting = (intent == "general" and len(question.split()) <= 3)
+
+        if not is_short_greeting:
             try:
                 vs = get_rag_service().vectorstore
                 retrieved_docs = await vs.similarity_search_all(
@@ -282,9 +285,10 @@ class Orchestrator:
             except Exception as e:
                 logger.warning(f"Document RAG failed: {e}")
 
-        # ─── 2. For data/mixed, also query structured time series ──────
-        # Always search ALL series (no collection filter)
-        if intent in ("data", "mixed"):
+        # ─── 2. Query structured time series ──────────────────────────
+        # Always search unless it's a short greeting.
+        # Catches cases where intent classifier misses a data question.
+        if not is_short_greeting:
             data_context, series_used, ts_tools, citations = await self._handle_data(
                 question, collection_name=None
             )
@@ -453,9 +457,15 @@ class Orchestrator:
     def _detect_change_method(self, question: str) -> str:
         """Detect the change period: YoY, MoM, or QoQ."""
         q = question.lower()
-        if any(kw in q for kw in ("yoy", "year-over-year", "annual", "yearly")):
+        if any(kw in q for kw in (
+            "yoy", "year-over-year", "year over year", "annual", "yearly",
+            "y-o-y", "y/y",
+        )):
             return "YoY"
-        if any(kw in q for kw in ("qoq", "quarter-over-quarter", "quarterly")):
+        if any(kw in q for kw in (
+            "qoq", "quarter-over-quarter", "quarter over quarter", "quarterly",
+            "q-o-q", "q/q",
+        )):
             return "QoQ"
         return "MoM"  # default
 
@@ -671,8 +681,9 @@ class Orchestrator:
         # ── get_series: date-range query ─────────────────────────────────
         elif tool == "get_series":
             start, end = _extract_date_range(question)
-            # Only use the BEST match to avoid noise
-            for candidate in candidates[:1]:
+            # Try top candidates until one returns data (handles scoring ties)
+            found_data = False
+            for candidate in candidates[:3]:
                 sid = candidate["series_id"]
                 result = await analytics.get_series(sid, start=start, end=end)
                 tools_called.append(f"get_series({sid})")
@@ -693,8 +704,13 @@ class Orchestrator:
                         candidate, result, "get_series",
                         f"{len(obs)} observations"
                     ))
+                    found_data = True
+                    break  # Stop at first successful candidate
                 elif "error" in result:
-                    data_parts.append(f"**{candidate['name']}**: {result['error']}")
+                    logger.info(f"get_series({sid}) failed: {result['error']}, trying next candidate")
+
+            if not found_data and candidates:
+                data_parts.append(f"No data found for the specified date range.")
 
         # ── latest: default fallback ─────────────────────────────────────
         else:
@@ -837,8 +853,10 @@ class Orchestrator:
         if is_followup and chat_history:
             search_query = self._rewrite_query_for_search(question, chat_history)
 
-        # ─── 1. Document retrieval (always search ALL collections) ────────
-        if intent != "general":
+        # ─── 1. Document retrieval ────────────────────────────────────────
+        is_short_greeting = (intent == "general" and len(question.split()) <= 3)
+
+        if not is_short_greeting:
             try:
                 vs = get_rag_service().vectorstore
                 retrieved_docs = await vs.similarity_search_all(query=search_query)
@@ -864,8 +882,8 @@ class Orchestrator:
             except Exception as e:
                 logger.warning(f"Document RAG failed: {e}")
 
-        # ─── 2. Structured data (always search ALL series) ────────────────
-        if intent in ("data", "mixed"):
+        # ─── 2. Structured data ──────────────────────────────────────────
+        if not is_short_greeting:
             data_context, series_used, ts_tools, citations = await self._handle_data(
                 question, collection_name=None
             )

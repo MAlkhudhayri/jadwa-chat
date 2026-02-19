@@ -79,6 +79,109 @@ def _parse_column(col: str) -> tuple:
     return pretty, ""
 
 
+# ── Rich synonyms for key series ──────────────────────────────────────────
+# Maps series_id → extra synonyms to add (on top of auto-generated ones).
+# This drastically improves discovery for common analyst queries.
+EXTRA_SYNONYMS = {
+    "sama__total_reserves_mn_sar": [
+        "SAMA reserves", "central bank reserves", "total reserves",
+        "Saudi reserves", "SAMA total reserves", "reserve assets",
+    ],
+    "sama__m1_mn_sar": [
+        "M1 money supply", "money supply M1", "M1", "narrow money",
+    ],
+    "sama__m2_mn_sar": [
+        "M2 money supply", "money supply M2", "M2", "broad money M2",
+    ],
+    "sama__other_quasi_money_mn_sar": [
+        "M3 money supply", "money supply M3", "M3", "broad money",
+    ],
+    "sama__general_cpi": [
+        "CPI", "consumer price index", "Saudi CPI", "general CPI",
+        "inflation rate", "price index",
+    ],
+    "sama__food_beverages_cpi": [
+        "food CPI", "food price index", "food inflation",
+    ],
+    "sama__housing_utilities_cpi": [
+        "housing CPI", "rent index", "housing inflation",
+    ],
+    "sama__transport_cpi": [
+        "transport CPI", "transportation inflation",
+    ],
+    "sama__clothing_cpi": [
+        "clothing CPI", "apparel inflation",
+    ],
+    "sama__demand_deposits_mn_sar": [
+        "bank deposits", "commercial bank deposits", "demand deposits",
+        "total deposits", "banking deposits",
+    ],
+    "sama__time_savings_mn_sar": [
+        "time deposits", "savings deposits", "term deposits",
+    ],
+    "sama__total_credit_mn_sar": [
+        "bank credit", "total bank credit", "bank lending",
+        "commercial bank loans", "total loans",
+    ],
+    "sama__capital_adequacy_ratio_pct": [
+        "capital adequacy", "CAR", "bank capital ratio",
+    ],
+    "sama__return_on_equity_pct": [
+        "bank ROE", "banking ROE", "return on equity",
+    ],
+    "sama__return_on_assets_pct": [
+        "bank ROA", "banking ROA", "return on assets",
+    ],
+    "sama__npl_to_total_loans_pct": [
+        "NPL ratio", "nonperforming loans", "bad loans ratio",
+    ],
+    "sama__saibor_3m": [
+        "SAIBOR", "SAIBOR 3M", "SAIBOR 3 month", "interbank rate",
+        "Saudi interbank rate",
+    ],
+    "sama__repo_rate": [
+        "repo rate", "SAMA repo", "reverse repo",
+    ],
+    "sama__current_account_mn_usd": [
+        "current account", "current account balance",
+        "balance of payments current account", "BOP current account",
+    ],
+    "sama__total_foreign_assets_mn_sar": [
+        "bank foreign assets", "foreign assets banks",
+        "net foreign assets",
+    ],
+    "oil_markets__brent_price_usd_bbl": [
+        "Brent", "Brent price", "Brent crude", "Brent oil price",
+        "oil price", "crude oil price",
+    ],
+    "oil_markets__wti_price_usd_bbl": [
+        "WTI", "WTI price", "WTI crude", "West Texas Intermediate",
+    ],
+    "oil_markets__global_oil_demand_mn_bbl_day": [
+        "global oil demand", "world oil demand", "oil demand",
+        "world oil consumption",
+    ],
+    "oil_markets__global_oil_supply_mn_bbl_day": [
+        "global oil supply", "world oil supply", "oil supply",
+        "world oil production total",
+    ],
+    "oil_markets__opec_crude_production_mn_bbl_day": [
+        "OPEC production", "OPEC crude", "OPEC output",
+    ],
+    "ksa_oil_production__ksa_crude_production_mn_bbl_day": [
+        "KSA crude production", "Saudi oil production",
+        "Saudi crude output", "KSA oil output",
+    ],
+    "ksa_oil_production__ksa_total_liquids_mn_bbl_day": [
+        "KSA total liquids", "Saudi total liquids",
+    ],
+    "ksa_oil_production__ksa_spare_capacity_mn_bbl_day": [
+        "KSA spare capacity", "Saudi spare capacity",
+        "OPEC spare capacity Saudi",
+    ],
+}
+
+
 # Old prefixes from previous seed runs with wrong collection slugs
 _STALE_PREFIXES = [
     "sama_reserves__",
@@ -182,6 +285,23 @@ async def seed_datasets():
                     series_id = f"{_slugify(collection)}__{_slugify(col)}"
                     pretty_name, unit = _parse_column(col)
 
+                    # Build synonyms: auto-generated + rich extras
+                    auto_syns = [
+                        col.lower().replace("_", " "),
+                        pretty_name.lower(),
+                        re.sub(r"_+", " ", series_id).strip(),  # no double spaces
+                    ]
+                    extra = EXTRA_SYNONYMS.get(series_id, [])
+                    all_syns = list(dict.fromkeys(
+                        auto_syns + [s.lower() for s in extra]
+                    ))  # deduplicate preserving order
+                    syns_json = json.dumps(all_syns)
+
+                    desc_text = (
+                        f"{pretty_name} ({unit}) from {source}"
+                        if unit else f"{pretty_name} from {source}"
+                    )
+
                     existing = await session.execute(
                         select(SeriesCatalog).where(
                             SeriesCatalog.series_id == series_id
@@ -190,18 +310,13 @@ async def seed_datasets():
                     existing_obj = existing.scalar()
 
                     if existing_obj:
-                        changed = False
-                        if unit and existing_obj.unit != unit:
-                            existing_obj.unit = unit
-                            changed = True
-                        if existing_obj.name != pretty_name:
-                            existing_obj.name = pretty_name
-                            changed = True
-                        if existing_obj.collection_name != collection:
-                            existing_obj.collection_name = collection
-                            changed = True
-                        if changed:
-                            await session.commit()
+                        # Always update synonyms, description, name, unit
+                        existing_obj.name = pretty_name
+                        existing_obj.unit = unit or existing_obj.unit
+                        existing_obj.collection_name = collection
+                        existing_obj.synonyms = syns_json
+                        existing_obj.description = desc_text
+                        await session.commit()
                     else:
                         session.add(SeriesCatalog(
                             series_id=series_id,
@@ -209,15 +324,8 @@ async def seed_datasets():
                             domain=collection,
                             source=source,
                             unit=unit or None,
-                            description=(
-                                f"{pretty_name} ({unit}) from {source}"
-                                if unit else f"{pretty_name} from {source}"
-                            ),
-                            synonyms=json.dumps([
-                                col.lower().replace("_", " "),
-                                pretty_name.lower(),
-                                series_id.replace("_", " "),
-                            ]),
+                            description=desc_text,
+                            synonyms=syns_json,
                             collection_name=collection,
                         ))
                         total_series += 1
