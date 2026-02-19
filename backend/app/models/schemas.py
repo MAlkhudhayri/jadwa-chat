@@ -97,4 +97,5 @@ class HealthResponse(BaseModel):
     app_name: str
     version: str
     qdrant_connected: bool
+    db_connected: bool = False
 

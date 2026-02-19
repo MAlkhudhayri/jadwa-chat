@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -127,11 +128,24 @@ def create_app() -> FastAPI:
     @app.get("/api/health", response_model=HealthResponse, tags=["System"])
     async def health_check():
         vs = get_vectorstore_service()
+
+        # Check DB connectivity
+        db_ok = False
+        try:
+            from app.core.database import get_engine
+            engine = await get_engine()
+            async with engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
+            db_ok = True
+        except Exception:
+            pass
+
         return HealthResponse(
-            status="healthy",
+            status="healthy" if db_ok else "degraded",
             app_name=settings.APP_NAME,
             version=settings.APP_VERSION,
             qdrant_connected=vs.is_connected(),
+            db_connected=db_ok,
         )
 
     @app.get("/", tags=["System"])
