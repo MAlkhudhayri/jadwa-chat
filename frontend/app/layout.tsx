@@ -7,6 +7,11 @@ export const metadata: Metadata = {
   description:
     "Intelligent RAG-powered chat for querying multiple document databases. Built for Jadwa Investment.",
   icons: { icon: "/favicon.ico" },
+  themeColor: "#f5f0e8",
+};
+
+export const viewport = {
+  themeColor: "#f5f0e8",
 };
 
 export default function RootLayout({

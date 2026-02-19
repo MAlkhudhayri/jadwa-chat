@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Menu, Database, AlertTriangle, Layers } from "lucide-react";
+import { Menu, Database, AlertTriangle, Layers, PanelLeftClose } from "lucide-react";
 
 const ALL_DATABASES_KEY = "all-databases";
 import Sidebar from "@/components/Sidebar";
@@ -331,14 +331,13 @@ export default function Home() {
       <main className="flex-1 flex flex-col min-w-0 h-full">
         {/* Top Bar */}
         <header className="h-14 border-b border-jadwa-border bg-white flex items-center px-4 shrink-0">
-          {!sidebarOpen && (
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="btn-ghost p-2 mr-2"
-            >
-              <Menu size={18} />
-            </button>
-          )}
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="btn-ghost p-2 mr-2"
+            title={sidebarOpen ? "Collapse sidebar" : "Open sidebar"}
+          >
+            {sidebarOpen ? <PanelLeftClose size={18} /> : <Menu size={18} />}
+          </button>
 
           {activeCollection ? (
             <div className="flex items-center gap-2">

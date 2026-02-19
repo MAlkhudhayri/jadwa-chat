@@ -289,10 +289,7 @@ class Orchestrator:
 
         if doc_context:
             merged_context += f"Retrieved documents/data:\n{doc_context}\n\n"
-            # Check if Qdrant results are actually relevant (score > threshold)
-            top_score = max((s.score for s in doc_sources), default=0)
-            if top_score > 0.35:
-                has_db_context = True
+            has_db_context = True  # Always trust Qdrant results — LLM judges relevance
 
         no_data_phrases = {"No data found.", "No matching time series found."}
         if data_context and data_context not in no_data_phrases:
@@ -302,7 +299,6 @@ class Orchestrator:
         # ─── 3b. FALLBACK: web search if no relevant DB context ───────
         web_citations = []
         if not has_db_context:
-            # The LLM classifier already tagged greetings as "general"
             is_greeting = (intent == "general" and len(question.split()) <= 5)
 
             if not is_greeting:
@@ -318,7 +314,6 @@ class Orchestrator:
                         knowledge_source = "web_search"
                         tools_called.append("web_search")
 
-                        # Add web results as sources
                         from app.models.schemas import Source
                         for r in web_results:
                             doc_sources.append(Source(
@@ -339,14 +334,13 @@ class Orchestrator:
                     knowledge_source = "general_knowledge"
 
             if not merged_context.strip():
-                if is_greeting or knowledge_source == "general_knowledge":
-                    merged_context = (
-                        "No specific data found in the databases or web. "
-                        "You may answer from your general knowledge, but clearly "
-                        "state that the answer is from general knowledge, not from "
-                        "JadwaChat's databases."
-                    )
-                    knowledge_source = "general_knowledge"
+                merged_context = (
+                    "No specific data found in the databases or web. "
+                    "You may answer from your general knowledge, but clearly "
+                    "state that the answer is from general knowledge, not from "
+                    "JadwaChat's databases."
+                )
+                knowledge_source = "general_knowledge"
 
         # ─── 4. Generate answer ───────────────────────────────────────
         answer = await self._generate_answer(
@@ -362,8 +356,6 @@ class Orchestrator:
 
         # Build citation text
         all_citations = citations + web_citations
-        if knowledge_source == "general_knowledge" and not all_citations:
-            all_citations.append("💡 Source: GPT-4o general knowledge (not from JadwaChat databases)")
         citation_text = "\n".join(all_citations) if all_citations else ""
 
         return {
@@ -733,14 +725,14 @@ class Orchestrator:
 
         if knowledge_source == "web_search":
             system += (
-                "8. Your answer is based on WEB SEARCH results. At the end of your answer, "
-                "add a note: '📌 *Source: Web search (not from JadwaChat databases)*'\n"
+                "8. Your answer is based on WEB SEARCH results. Do NOT add any source "
+                "attribution note at the end — the UI handles source display separately.\n"
             )
         elif knowledge_source == "general_knowledge":
             system += (
                 "8. You have NO relevant data from databases or web search. You may answer "
-                "from your general training knowledge, but you MUST add a note at the end: "
-                "'📌 *Source: General knowledge (not from JadwaChat databases)*'\n"
+                "from your general training knowledge. Do NOT add any source attribution "
+                "note at the end — the UI handles source display separately.\n"
             )
 
         context_block = f"\n\nContext:\n{context}"
@@ -864,9 +856,7 @@ class Orchestrator:
 
         if doc_context:
             merged_context += f"Retrieved documents/data:\n{doc_context}\n\n"
-            top_score = max((s.score for s in doc_sources), default=0)
-            if top_score > 0.35:
-                has_db_context = True
+            has_db_context = True  # Always trust Qdrant results — LLM judges relevance
 
         no_data_phrases = {"No data found.", "No matching time series found."}
         if data_context and data_context not in no_data_phrases:
@@ -942,8 +932,6 @@ class Orchestrator:
 
         # ─── 6. Final event ────────────────────────────────────────────
         all_citations = citations + web_citations
-        if knowledge_source == "general_knowledge" and not all_citations:
-            all_citations.append("💡 Source: GPT-4o general knowledge (not from JadwaChat databases)")
 
         yield {
             "type": "done",
