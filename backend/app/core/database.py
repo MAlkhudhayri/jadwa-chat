@@ -1,7 +1,7 @@
 import json
 from datetime import datetime, timezone
 from typing import Optional, List
-from sqlalchemy import Column, String, Text, DateTime, Integer, create_engine
+from sqlalchemy import Column, String, Text, DateTime, Integer, Boolean, create_engine
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 
@@ -12,12 +12,28 @@ class Base(DeclarativeBase):
     pass
 
 
+# ─── Auth ─────────────────────────────────────────────
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    email = Column(String, unique=True, nullable=False, index=True)
+    hashed_password = Column(String, nullable=False)
+    full_name = Column(String, nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+# ─── Chat ─────────────────────────────────────────────
+
 class Conversation(Base):
     __tablename__ = "conversations"
 
     id = Column(String, primary_key=True)
     title = Column(String, default="New Conversation")
     collection_name = Column(String, nullable=False)
+    user_id = Column(Integer, nullable=True)  # optional FK to users
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
                         onupdate=lambda: datetime.now(timezone.utc))

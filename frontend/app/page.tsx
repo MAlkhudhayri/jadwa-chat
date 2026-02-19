@@ -10,6 +10,8 @@ import ChatInput from "@/components/ChatInput";
 import UploadModal from "@/components/UploadModal";
 import WelcomeScreen from "@/components/WelcomeScreen";
 import SplashScreen from "@/components/SplashScreen";
+import AuthPage from "@/components/AuthPage";
+import { useAuth } from "@/lib/auth";
 import {
   fetchCollections,
   fetchConversations,
@@ -22,6 +24,8 @@ import {
 import { ChatMessage as ChatMessageType, Collection, Conversation } from "@/types";
 
 export default function Home() {
+  const { user, isLoading: authLoading } = useAuth();
+
   // Splash screen — shown once on first load
   const [showSplash, setShowSplash] = useState(true);
 
@@ -279,6 +283,20 @@ export default function Home() {
   };
 
   // ─── Render ─────────────────────────────────────────
+
+  // Auth loading
+  if (authLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[#faf8f5]">
+        <div className="animate-pulse text-[#8b7355]">Loading...</div>
+      </div>
+    );
+  }
+
+  // Not logged in → show auth page
+  if (!user) {
+    return <AuthPage />;
+  }
 
   const showWelcome = messages.length === 0;
 

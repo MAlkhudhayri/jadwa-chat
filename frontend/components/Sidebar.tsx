@@ -13,9 +13,11 @@ import {
   X,
   FolderOpen,
   Layers,
+  LogOut,
 } from "lucide-react";
 import { Collection, Conversation } from "@/types";
 import { cn, formatDate, truncate } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
 
 interface SidebarProps {
   collections: Collection[];
@@ -31,6 +33,25 @@ interface SidebarProps {
   onOpenUpload: () => void;
   isOpen: boolean;
   onToggle: () => void;
+}
+
+function UserFooter() {
+  const { user, logout } = useAuth();
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex-1 min-w-0">
+        <p className="text-xs text-white/60 truncate">{user?.full_name || "User"}</p>
+        <p className="text-[10px] text-white/30 truncate">{user?.email}</p>
+      </div>
+      <button
+        onClick={logout}
+        className="ml-2 p-1.5 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/10 transition-colors"
+        title="Sign out"
+      >
+        <LogOut size={14} />
+      </button>
+    </div>
+  );
 }
 
 export default function Sidebar({
@@ -276,11 +297,9 @@ export default function Sidebar({
             </div>
           </div>
 
-          {/* Footer */}
+          {/* Footer with user & logout */}
           <div className="p-3 border-t border-white/10">
-            <p className="text-[10px] text-white/25 text-center">
-              Powered by RAG · Qdrant · GPT-4o
-            </p>
+            <UserFooter />
           </div>
         </div>
       </aside>

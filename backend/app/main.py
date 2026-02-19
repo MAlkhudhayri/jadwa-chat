@@ -1,13 +1,18 @@
 import logging
+import traceback
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from app.config import get_settings
 from app.core.database import init_db
 from app.core.seed_series import seed_series_catalog
-from app.api import chat, documents, collections, ask, upload
+from app.api import chat, documents, collections, ask, upload, auth
 from app.models.schemas import HealthResponse
 from app.services.vectorstore import get_vectorstore_service
 
@@ -18,6 +23,9 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
+
+# ─── Rate Limiter ─────────────────────────────────────
+limiter = Limiter(key_func=get_remote_address)
 
 
 @asynccontextmanager
@@ -33,7 +41,7 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("✅ OpenAI API key configured")
 
-    # Initialize SQLite database
+    # Initialize database
     await init_db()
     logger.info("✅ Database initialized")
 
@@ -67,7 +75,23 @@ def create_app() -> FastAPI:
         redoc_url="/redoc",
     )
 
-    # CORS — configurable via ALLOWED_ORIGINS env var
+    # ─── Rate Limiter ─────────────────────────────────
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+    # ─── Global Exception Handler ─────────────────────
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request: Request, exc: Exception):
+        logger.error(f"Unhandled error: {exc}\n{traceback.format_exc()}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "detail": "An internal error occurred. Please try again.",
+                "type": type(exc).__name__,
+            },
+        )
+
+    # ─── CORS ─────────────────────────────────────────
     origins = settings.ALLOWED_ORIGINS
     if origins == "*":
         allow_origins = ["*"]
@@ -82,14 +106,15 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Register routers
+    # ─── Routers ──────────────────────────────────────
+    app.include_router(auth.router, prefix="/api")
     app.include_router(chat.router, prefix="/api")
     app.include_router(documents.router, prefix="/api")
     app.include_router(collections.router, prefix="/api")
     app.include_router(ask.router, prefix="/api")
     app.include_router(upload.router, prefix="/api")
 
-    # Health check
+    # ─── Health Check ─────────────────────────────────
     @app.get("/api/health", response_model=HealthResponse, tags=["System"])
     async def health_check():
         vs = get_vectorstore_service()
@@ -113,4 +138,3 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
-

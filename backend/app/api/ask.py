@@ -4,15 +4,19 @@ import json
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
+from app.config import get_settings
 from app.services.orchestrator import get_orchestrator
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/ask", tags=["Ask"])
+limiter = Limiter(key_func=get_remote_address)
 
 
 class AskRequest(BaseModel):
@@ -22,14 +26,15 @@ class AskRequest(BaseModel):
 
 
 @router.post("/")
-async def ask_question(request: AskRequest):
+@limiter.limit(lambda: get_settings().RATE_LIMIT_CHAT)
+async def ask_question(request: Request, body: AskRequest):
     """Ask JadwaChat a question — routes to the right pipeline automatically."""
     try:
         orchestrator = get_orchestrator()
         result = await orchestrator.ask(
-            question=request.question,
-            collection_name=request.collection_name,
-            conversation_id=request.conversation_id,
+            question=body.question,
+            collection_name=body.collection_name,
+            conversation_id=body.conversation_id,
         )
         return result
     except Exception as e:
@@ -38,7 +43,8 @@ async def ask_question(request: AskRequest):
 
 
 @router.post("/stream")
-async def ask_question_stream(request: AskRequest):
+@limiter.limit(lambda: get_settings().RATE_LIMIT_CHAT)
+async def ask_question_stream(request: Request, body: AskRequest):
     """Streaming version of /ask — returns SSE events with token-by-token output.
 
     Event types:
@@ -53,9 +59,9 @@ async def ask_question_stream(request: AskRequest):
         try:
             orchestrator = get_orchestrator()
             async for event in orchestrator.ask_stream(
-                question=request.question,
-                collection_name=request.collection_name,
-                conversation_id=request.conversation_id,
+                question=body.question,
+                collection_name=body.collection_name,
+                conversation_id=body.conversation_id,
             ):
                 yield {
                     "event": event["type"],

@@ -24,11 +24,20 @@ class VectorStoreService:
     @property
     def client(self) -> QdrantClient:
         if self._client is None:
-            self._client = QdrantClient(
-                host=self.settings.QDRANT_HOST,
-                port=self.settings.QDRANT_PORT,
-                api_key=self.settings.QDRANT_API_KEY or None,
-            )
+            if self.settings.QDRANT_URL:
+                # Cloud / remote — use URL
+                self._client = QdrantClient(
+                    url=self.settings.QDRANT_URL,
+                    api_key=self.settings.QDRANT_API_KEY or None,
+                )
+                logger.info(f"Qdrant: connected via URL ({self.settings.QDRANT_URL[:40]}...)")
+            else:
+                # Local Docker — use host:port
+                self._client = QdrantClient(
+                    host=self.settings.QDRANT_HOST,
+                    port=self.settings.QDRANT_PORT,
+                    api_key=self.settings.QDRANT_API_KEY or None,
+                )
         return self._client
 
     @property

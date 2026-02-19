@@ -2,10 +2,23 @@ import { Collection, Conversation, UploadResponse, StreamEvent, Source } from "@
 
 const API_BASE = "/api";
 
+// ─── Auth Header Helper ──────────────────────────────
+
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("jadwachat_token") : null;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+function jsonAuthHeaders(): Record<string, string> {
+  return { "Content-Type": "application/json", ...authHeaders() };
+}
+
 // ─── Collections ──────────────────────────────────────
 
 export async function fetchCollections(): Promise<Collection[]> {
-  const res = await fetch(`${API_BASE}/collections/`);
+  const res = await fetch(`${API_BASE}/collections/`, {
+    headers: authHeaders(),
+  });
   if (!res.ok) throw new Error("Failed to fetch collections");
   const data = await res.json();
   return data.collections;
@@ -17,7 +30,7 @@ export async function createCollection(
 ): Promise<Collection> {
   const res = await fetch(`${API_BASE}/collections/`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: jsonAuthHeaders(),
     body: JSON.stringify({ name, description }),
   });
   if (!res.ok) throw new Error("Failed to create collection");
@@ -27,6 +40,7 @@ export async function createCollection(
 export async function deleteCollection(name: string): Promise<void> {
   const res = await fetch(`${API_BASE}/collections/${name}`, {
     method: "DELETE",
+    headers: authHeaders(),
   });
   if (!res.ok) throw new Error("Failed to delete collection");
 }
@@ -43,6 +57,7 @@ export async function uploadDocument(
 
   const res = await fetch(`${API_BASE}/documents/upload`, {
     method: "POST",
+    headers: authHeaders(),
     body: formData,
   });
   if (!res.ok) {
@@ -62,6 +77,7 @@ export async function uploadMultipleDocuments(
 
   const res = await fetch(`${API_BASE}/documents/upload-multiple`, {
     method: "POST",
+    headers: authHeaders(),
     body: formData,
   });
   if (!res.ok) throw new Error("Failed to upload documents");
@@ -87,7 +103,7 @@ export async function askQuestion(
 ): Promise<AskResponse> {
   const res = await fetch(`${API_BASE}/ask/`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: jsonAuthHeaders(),
     body: JSON.stringify({
       question,
       collection_name: collectionName || undefined,
@@ -121,7 +137,7 @@ export async function askQuestionStream(
 ): Promise<void> {
   const res = await fetch(`${API_BASE}/ask/stream`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: jsonAuthHeaders(),
     body: JSON.stringify({
       question,
       collection_name: collectionName || undefined,
@@ -211,6 +227,7 @@ export async function uploadTimeSeriesFile(
 
   const res = await fetch(`${API_BASE}/upload/`, {
     method: "POST",
+    headers: authHeaders(),
     body: formData,
   });
   if (!res.ok) {
@@ -231,6 +248,7 @@ export async function smartUpload(
 
   const res = await fetch(`${API_BASE}/upload/`, {
     method: "POST",
+    headers: authHeaders(),
     body: formData,
   });
   if (!res.ok) {
@@ -248,13 +266,17 @@ export async function fetchConversations(
   const params = collectionName
     ? `?collection_name=${encodeURIComponent(collectionName)}`
     : "";
-  const res = await fetch(`${API_BASE}/chat/conversations${params}`);
+  const res = await fetch(`${API_BASE}/chat/conversations${params}`, {
+    headers: authHeaders(),
+  });
   if (!res.ok) throw new Error("Failed to fetch conversations");
   return res.json();
 }
 
 export async function fetchConversation(conversationId: string) {
-  const res = await fetch(`${API_BASE}/chat/conversations/${conversationId}`);
+  const res = await fetch(`${API_BASE}/chat/conversations/${conversationId}`, {
+    headers: authHeaders(),
+  });
   if (!res.ok) throw new Error("Failed to fetch conversation");
   return res.json();
 }
@@ -262,6 +284,7 @@ export async function fetchConversation(conversationId: string) {
 export async function deleteConversation(conversationId: string): Promise<void> {
   const res = await fetch(`${API_BASE}/chat/conversations/${conversationId}`, {
     method: "DELETE",
+    headers: authHeaders(),
   });
   if (!res.ok) throw new Error("Failed to delete conversation");
 }
@@ -273,4 +296,3 @@ export async function checkHealth() {
   if (!res.ok) throw new Error("Backend unreachable");
   return res.json();
 }
-

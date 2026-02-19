@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthProvider } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: "JadwaChat — AI Document Assistant",
@@ -15,8 +16,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="h-screen overflow-hidden">{children}</body>
+      <body className="h-screen overflow-hidden">
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }
-

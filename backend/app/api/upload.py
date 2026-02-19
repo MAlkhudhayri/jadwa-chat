@@ -20,7 +20,9 @@ from datetime import datetime, timezone
 from typing import Optional, List, Tuple
 
 import pandas as pd
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.config import get_settings
 from app.services.connectors.base import ParsedObservation
@@ -32,6 +34,7 @@ from app.models.timeseries import SeriesCatalog
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/upload", tags=["Upload"])
+limiter = Limiter(key_func=get_remote_address)
 
 TIMESERIES_EXTENSIONS = {".csv", ".xlsx", ".xls"}
 DOCUMENT_EXTENSIONS = {".pdf", ".docx", ".txt", ".md"}
@@ -301,7 +304,9 @@ async def _auto_register_series(
 # ──────────────────────────────────────────────────────
 
 @router.post("/")
+@limiter.limit(lambda: get_settings().RATE_LIMIT_UPLOAD)
 async def unified_upload(
+    request: Request,
     file: UploadFile = File(...),
     collection_name: str = Form(...),
     source: Optional[str] = Form(None),
