@@ -252,18 +252,13 @@ class Orchestrator:
                 logger.info(f"Rewritten search query: {search_query[:100]}")
 
         # ─── 1. Query Qdrant for document/entity context (skip for general) ─
-        if collection_name and intent != "general":
+        # Always search ALL collections so every tab has full access
+        if intent != "general":
             try:
                 vs = get_rag_service().vectorstore
-                if collection_name == "all-databases":
-                    retrieved_docs = await vs.similarity_search_all(
-                        query=search_query,
-                    )
-                else:
-                    retrieved_docs = await vs.similarity_search(
-                        collection_name=collection_name,
-                        query=search_query,
-                    )
+                retrieved_docs = await vs.similarity_search_all(
+                    query=search_query,
+                )
                 tools_called.append("document_rag")
 
                 if retrieved_docs:
@@ -272,7 +267,6 @@ class Orchestrator:
                         content = doc.get("content", "")
                         if content:
                             doc_parts.append(content)
-                            # Build source objects
                             metadata = doc.get("metadata", {})
                             from app.models.schemas import Source
                             doc_sources.append(Source(
@@ -289,9 +283,10 @@ class Orchestrator:
                 logger.warning(f"Document RAG failed: {e}")
 
         # ─── 2. For data/mixed, also query structured time series ──────
+        # Always search ALL series (no collection filter)
         if intent in ("data", "mixed"):
             data_context, series_used, ts_tools, citations = await self._handle_data(
-                question, collection_name=collection_name
+                question, collection_name=None
             )
             tools_called.extend(ts_tools)
 
@@ -842,16 +837,11 @@ class Orchestrator:
         if is_followup and chat_history:
             search_query = self._rewrite_query_for_search(question, chat_history)
 
-        # ─── 1. Document retrieval ──────────────────────────────────────
-        if collection_name and intent != "general":
+        # ─── 1. Document retrieval (always search ALL collections) ────────
+        if intent != "general":
             try:
                 vs = get_rag_service().vectorstore
-                if collection_name == "all-databases":
-                    retrieved_docs = await vs.similarity_search_all(query=search_query)
-                else:
-                    retrieved_docs = await vs.similarity_search(
-                        collection_name=collection_name, query=search_query,
-                    )
+                retrieved_docs = await vs.similarity_search_all(query=search_query)
                 tools_called.append("document_rag")
 
                 if retrieved_docs:
@@ -874,10 +864,10 @@ class Orchestrator:
             except Exception as e:
                 logger.warning(f"Document RAG failed: {e}")
 
-        # ─── 2. Structured data ─────────────────────────────────────────
+        # ─── 2. Structured data (always search ALL series) ────────────────
         if intent in ("data", "mixed"):
             data_context, series_used, ts_tools, citations = await self._handle_data(
-                question, collection_name=collection_name
+                question, collection_name=None
             )
             tools_called.extend(ts_tools)
 
