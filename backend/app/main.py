@@ -13,6 +13,7 @@ from slowapi.util import get_remote_address
 from app.config import get_settings
 from app.core.database import init_db
 from app.core.seed_series import seed_series_catalog
+from app.core.seed_datasets import seed_datasets
 from app.api import chat, documents, collections, ask, upload, auth
 from app.models.schemas import HealthResponse
 from app.services.vectorstore import get_vectorstore_service
@@ -54,6 +55,12 @@ async def lifespan(app: FastAPI):
         await seed_series_catalog()
     except Exception as e:
         logger.warning(f"⚠️  Series catalog seeding failed: {e}")
+
+    # Seed SAMA/EIA datasets from shipped CSVs
+    try:
+        await seed_datasets()
+    except Exception as e:
+        logger.warning(f"⚠️  Dataset seeding failed: {e}")
 
     # Check Qdrant connection
     try:
