@@ -97,7 +97,7 @@ export default function WelcomeScreen({
 
         <div className="mt-8 flex items-center justify-center gap-2 text-xs text-gray-400">
           <Sparkles size={12} />
-          Powered by RAG · Qdrant · GPT-4o
+          Powered by Jadwa Investment, Authored by Mohammed Alkhudhayri
         </div>
       </div>
     </div>

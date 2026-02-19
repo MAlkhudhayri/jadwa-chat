@@ -3,9 +3,9 @@ import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
 
 export const metadata: Metadata = {
-  title: "JadwaChat — AI Document Assistant",
+  title: "JadwaChat",
   description:
-    "Intelligent RAG-powered chat for querying multiple document databases. Built for Jadwa Investment.",
+    "AI RAG-powered chat. Built for Jadwa Investment.",
   icons: { icon: "/favicon.ico" },
   themeColor: "#f5f0e8",
 };
