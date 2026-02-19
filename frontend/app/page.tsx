@@ -52,10 +52,12 @@ export default function Home() {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  // Load collections on mount
+  // Load collections when user is authenticated
   useEffect(() => {
-    loadCollections();
-  }, []);
+    if (user) {
+      loadCollections();
+    }
+  }, [user]);
 
   // Load conversations when collection changes
   useEffect(() => {
