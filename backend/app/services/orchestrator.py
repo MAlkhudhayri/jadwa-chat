@@ -294,6 +294,24 @@ class Orchestrator:
             )
             tools_called.extend(ts_tools)
 
+            # Add time series results as sources so they show in the UI
+            if data_context and data_context not in {"No data found.", "No matching time series found."}:
+                from app.models.schemas import Source
+                for sid in series_used[:3]:  # max 3 series sources
+                    pretty = sid.replace("__", " / ").replace("_", " ").title()
+                    doc_sources.insert(0, Source(
+                        content=data_context[:500],
+                        metadata={
+                            "source": "PostgreSQL Time Series",
+                            "title": pretty,
+                            "type": "time_series",
+                            "series_id": sid,
+                        },
+                        score=1.0,
+                        page=None,
+                        filename=f"📊 {pretty}",
+                    ))
+
         # ─── 3. Merge context and check if we have relevant data ──────
         merged_context = ""
         has_db_context = False
@@ -888,6 +906,24 @@ class Orchestrator:
                 question, collection_name=None
             )
             tools_called.extend(ts_tools)
+
+            # Add time series results as sources so they show in the UI
+            if data_context and data_context not in {"No data found.", "No matching time series found."}:
+                from app.models.schemas import Source
+                for sid in series_used[:3]:  # max 3 series sources
+                    pretty = sid.replace("__", " / ").replace("_", " ").title()
+                    doc_sources.insert(0, Source(
+                        content=data_context[:500],
+                        metadata={
+                            "source": "PostgreSQL Time Series",
+                            "title": pretty,
+                            "type": "time_series",
+                            "series_id": sid,
+                        },
+                        score=1.0,
+                        page=None,
+                        filename=f"📊 {pretty}",
+                    ))
 
         # ─── 3. Merge context ──────────────────────────────────────────
         merged_context = ""
