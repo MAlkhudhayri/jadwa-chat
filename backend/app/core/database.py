@@ -64,11 +64,25 @@ _engine = None
 _session_factory = None
 
 
+def _normalize_db_url(url: str) -> str:
+    """Auto-convert DATABASE_URL to async driver format.
+
+    Railway/Heroku give postgresql://... but SQLAlchemy async needs
+    postgresql+asyncpg://... — this handles the conversion automatically.
+    """
+    if url.startswith("postgresql://"):
+        return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    if url.startswith("postgres://"):
+        return url.replace("postgres://", "postgresql+asyncpg://", 1)
+    return url
+
+
 async def get_engine():
     global _engine
     if _engine is None:
         settings = get_settings()
-        _engine = create_async_engine(settings.DATABASE_URL, echo=False)
+        db_url = _normalize_db_url(settings.DATABASE_URL)
+        _engine = create_async_engine(db_url, echo=False)
     return _engine
 
 
