@@ -12,6 +12,8 @@
   body {
     @apply bg-jadwa-surface text-gray-900 antialiased;
     font-family: 'Inter', system-ui, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
 
   /* Custom scrollbar */
@@ -81,7 +83,8 @@
     @apply bg-gray-100 text-jadwa-brown px-1.5 py-0.5 rounded text-sm font-mono;
   }
   .prose-chat pre {
-    @apply bg-gray-900 text-gray-100 rounded-lg p-3 my-2 overflow-x-auto;
+    @apply bg-gray-900 text-gray-100 rounded-lg p-2 sm:p-3 my-2 overflow-x-auto text-xs sm:text-sm;
+    -webkit-overflow-scrolling: touch;
   }
   .prose-chat pre code {
     @apply bg-transparent text-gray-100 p-0;
@@ -90,7 +93,10 @@
     @apply border-l-4 border-jadwa-tan pl-3 italic text-gray-600 my-2;
   }
   .prose-chat table {
-    @apply w-full border-collapse my-2;
+    @apply w-full border-collapse my-2 text-xs sm:text-sm;
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
   .prose-chat th {
     @apply bg-gray-50 border border-jadwa-border px-3 py-1.5 text-left text-sm font-semibold;
@@ -285,13 +291,19 @@
 /* Title entrance */
 .splash-title {
   font-family: 'Inter', system-ui, sans-serif;
-  font-size: 2.2rem;
+  font-size: 1.6rem;
   font-weight: 700;
   letter-spacing: -0.02em;
   margin-top: 4px;
   animation: textFadeUp 0.8s ease-out 0.4s forwards;
   opacity: 0;
   transform: translateY(15px);
+}
+
+@media (min-width: 640px) {
+  .splash-title {
+    font-size: 2.2rem;
+  }
 }
 
 .splash-title-jadwa {
@@ -306,15 +318,22 @@
 /* Subtitle */
 .splash-subtitle {
   font-family: 'Inter', system-ui, sans-serif;
-  font-size: 0.85rem;
+  font-size: 0.7rem;
   font-weight: 400;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: rgba(107, 88, 64, 0.45);
   margin-top: 6px;
   animation: textFadeUp 0.8s ease-out 0.7s forwards;
   opacity: 0;
   transform: translateY(15px);
+}
+
+@media (min-width: 640px) {
+  .splash-subtitle {
+    font-size: 0.85rem;
+    letter-spacing: 0.12em;
+  }
 }
 
 @keyframes textFadeUp {

@@ -58,33 +58,65 @@ async def _get_ts_count(collection_name: str) -> int:
 
 @router.get("/", response_model=CollectionListResponse)
 async def list_collections():
-    """List all available collections (Qdrant + virtual All Databases)."""
+    """List all available collections (Qdrant + PostgreSQL time series + virtual All Databases)."""
     try:
         vs = get_vectorstore_service()
-        collections = vs.list_collections()
+        qdrant_collections = vs.list_collections()
 
+        seen_names: set[str] = set()
         result = []
         total_docs = 0
 
-        for col in collections:
-            # Skip internal collections
+        # 1) Qdrant collections (documents / embeddings)
+        for col in qdrant_collections:
             if col["name"] in INTERNAL_COLLECTIONS:
                 continue
 
-            desc = await _get_description(col["name"])
-            ts_count = await _get_ts_count(col["name"])
+            name = col["name"]
+            seen_names.add(name)
+
+            desc = await _get_description(name)
+            ts_count = await _get_ts_count(name)
             doc_count = col["document_count"] + ts_count
             total_docs += doc_count
             result.append(CollectionInfo(
-                name=col["name"],
+                name=name,
                 document_count=doc_count,
                 description=desc,
             ))
 
-        # Also count time series with no collection (pre-loaded data)
+        # 2) PostgreSQL-only collections (time series with no Qdrant collection)
         factory = await get_session_factory()
         session = factory()
         try:
+            ts_collections = await session.execute(
+                select(
+                    SeriesCatalog.collection_name,
+                    func.count(Observation.id).label("obs_count"),
+                )
+                .join(Observation, Observation.series_id == SeriesCatalog.series_id)
+                .where(
+                    SeriesCatalog.collection_name != None,
+                    SeriesCatalog.collection_name != "",
+                )
+                .group_by(SeriesCatalog.collection_name)
+            )
+            for row in ts_collections:
+                col_name = row[0]
+                obs_count = row[1] or 0
+                if col_name in seen_names or col_name in INTERNAL_COLLECTIONS:
+                    continue
+                seen_names.add(col_name)
+
+                desc = await _get_description(col_name)
+                total_docs += obs_count
+                result.append(CollectionInfo(
+                    name=col_name,
+                    document_count=obs_count,
+                    description=desc or f"Time series data ({obs_count:,} data points)",
+                ))
+
+            # 3) Count orphan time series (no collection_name)
             preloaded = await session.execute(
                 select(func.count(Observation.id))
                 .join(SeriesCatalog, Observation.series_id == SeriesCatalog.series_id)

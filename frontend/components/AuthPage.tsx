@@ -37,11 +37,11 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#faf8f5]">
-      <div className="w-full max-w-md p-8">
+    <div className="min-h-screen flex items-center justify-center bg-[#faf8f5] px-4 py-8 sm:py-0">
+      <div className="w-full max-w-md">
         {/* Logo & title */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-20 h-20 rounded-[22%] overflow-hidden mb-4 shadow-lg">
+        <div className="flex flex-col items-center mb-6 sm:mb-8">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-[22%] overflow-hidden mb-3 sm:mb-4 shadow-lg">
             <Image
               src="/jadwa-logo.png"
               alt="Jadwa"
@@ -58,7 +58,7 @@ export default function AuthPage() {
         </div>
 
         {/* Form card */}
-        <div className="bg-white rounded-2xl shadow-xl p-6 border border-[#e8dfd3]">
+        <div className="bg-white rounded-2xl shadow-xl p-5 sm:p-6 border border-[#e8dfd3]">
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === "register" && (
               <div>

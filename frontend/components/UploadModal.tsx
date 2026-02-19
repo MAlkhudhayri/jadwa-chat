@@ -120,10 +120,10 @@ export default function UploadModal({
   const docCount = files.filter((f) => f.fileType === "document").length;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[85vh] flex flex-col">
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/50">
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg sm:mx-4 max-h-[90vh] sm:max-h-[85vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-jadwa-border">
+        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-jadwa-border">
           <div>
             <h2 className="font-semibold text-jadwa-brown">Upload Data</h2>
             <p className="text-xs text-gray-500 mt-0.5">
@@ -136,10 +136,10 @@ export default function UploadModal({
         </div>
 
         {/* Dropzone */}
-        <div className="p-5">
+        <div className="p-4 sm:p-5">
           <div
             {...getRootProps()}
-            className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
+            className={`border-2 border-dashed rounded-xl p-5 sm:p-8 text-center cursor-pointer transition-all ${
               isDragActive
                 ? "dropzone-active border-jadwa-tan"
                 : "border-gray-300 hover:border-jadwa-brown/30"
@@ -147,22 +147,22 @@ export default function UploadModal({
           >
             <input {...getInputProps()} />
             <Upload
-              size={32}
-              className={`mx-auto mb-3 ${
+              size={28}
+              className={`mx-auto mb-2 sm:mb-3 ${
                 isDragActive ? "text-jadwa-tan" : "text-gray-400"
               }`}
             />
             <p className="text-sm text-gray-600 font-medium">
               {isDragActive
                 ? "Drop files here..."
-                : "Drag & drop files, or click to browse"}
+                : "Tap to browse or drop files"}
             </p>
-            <div className="flex justify-center gap-4 mt-3">
-              <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
+            <div className="flex flex-col sm:flex-row justify-center gap-1 sm:gap-4 mt-2 sm:mt-3">
+              <div className="flex items-center justify-center gap-1.5 text-[11px] text-gray-400">
                 <Database size={12} className="text-jadwa-tan" />
                 CSV, Excel → Time Series
               </div>
-              <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
+              <div className="flex items-center justify-center gap-1.5 text-[11px] text-gray-400">
                 <FileSearch size={12} className="text-jadwa-brown" />
                 PDF, DOCX, TXT → Documents
               </div>
@@ -230,7 +230,7 @@ export default function UploadModal({
         )}
 
         {/* Footer */}
-        <div className="p-5 border-t border-jadwa-border flex items-center justify-between">
+        <div className="p-4 sm:p-5 border-t border-jadwa-border flex items-center justify-between">
           <p className="text-xs text-gray-400">
             {files.length} file{files.length !== 1 ? "s" : ""}
             {tsCount > 0 && ` · ${tsCount} data`}

@@ -54,7 +54,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
       </div>
 
       {/* Message */}
-      <div className={cn("max-w-[75%] min-w-0", isUser && "text-right")}>
+      <div className={cn("max-w-[88%] sm:max-w-[75%] min-w-0", isUser && "text-right")}>
         <div
           className={cn(
             isUser ? "chat-bubble-user" : "chat-bubble-assistant",

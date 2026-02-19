@@ -104,7 +104,7 @@ export default function SplashScreen({
 
         {/* Logo */}
         <div className="splash-logo">
-          <div className="w-[120px] h-[120px] rounded-[22%] overflow-hidden shadow-2xl">
+          <div className="w-[90px] h-[90px] sm:w-[120px] sm:h-[120px] rounded-[22%] overflow-hidden shadow-2xl">
             <Image
               src="/jadwa-logo.png"
               alt="Jadwa Investment"

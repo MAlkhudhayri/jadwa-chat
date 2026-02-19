@@ -96,13 +96,13 @@ export default function Sidebar({
         className={cn(
           "fixed lg:relative z-50 h-full bg-jadwa-brown-dark text-white flex flex-col",
           "transition-all duration-300 ease-in-out overflow-hidden",
-          isOpen ? "w-72" : "w-[68px]"
+          isOpen ? "w-72" : "w-0 lg:w-[68px]"
         )}
       >
         {/* ── Collapsed state: logo + name only ────────────────────── */}
         {!isOpen && (
           <div
-            className="flex flex-col items-center pt-4 pb-3 cursor-pointer hover:bg-white/5 transition-colors h-full"
+            className="hidden lg:flex flex-col items-center pt-4 pb-3 cursor-pointer hover:bg-white/5 transition-colors h-full"
             onClick={onToggle}
             title="Expand sidebar"
           >

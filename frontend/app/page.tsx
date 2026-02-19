@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Menu, Database, AlertTriangle, Layers, PanelLeftClose } from "lucide-react";
 
 const ALL_DATABASES_KEY = "all-databases";
@@ -29,8 +29,14 @@ export default function Home() {
   // Splash screen — shown once on first load
   const [showSplash, setShowSplash] = useState(true);
 
-  // State
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // Detect mobile once on mount
+  const isMobile = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth < 1024;
+  }, []);
+
+  // State — sidebar defaults closed on mobile
+  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeCollection, setActiveCollection] = useState<string | null>(null);
@@ -107,20 +113,27 @@ export default function Home() {
 
   // ─── Actions ────────────────────────────────────────
 
+  const closeSidebarOnMobile = () => {
+    if (window.innerWidth < 1024) setSidebarOpen(false);
+  };
+
   const handleSelectCollection = (name: string) => {
     setActiveCollection(name);
     setActiveConversation(null);
     setMessages([]);
+    closeSidebarOnMobile();
   };
 
   const handleSelectConversation = (id: string) => {
     setActiveConversation(id);
     loadConversation(id);
+    closeSidebarOnMobile();
   };
 
   const handleNewConversation = () => {
     setActiveConversation(null);
     setMessages([]);
+    closeSidebarOnMobile();
   };
 
   const handleDeleteConversation = async (id: string) => {
@@ -330,38 +343,38 @@ export default function Home() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 h-full">
         {/* Top Bar */}
-        <header className="h-14 border-b border-jadwa-border bg-white flex items-center px-4 shrink-0">
+        <header className="h-12 sm:h-14 border-b border-jadwa-border bg-white flex items-center px-2 sm:px-4 shrink-0">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="btn-ghost p-2 mr-2"
+            className="btn-ghost p-1.5 sm:p-2 mr-1 sm:mr-2"
             title={sidebarOpen ? "Collapse sidebar" : "Open sidebar"}
           >
             {sidebarOpen ? <PanelLeftClose size={18} /> : <Menu size={18} />}
           </button>
 
           {activeCollection ? (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
               {activeCollection === ALL_DATABASES_KEY ? (
-                <Layers size={16} className="text-jadwa-tan" />
+                <Layers size={16} className="text-jadwa-tan shrink-0" />
               ) : (
-                <Database size={16} className="text-jadwa-tan" />
+                <Database size={16} className="text-jadwa-tan shrink-0" />
               )}
-              <span className="font-medium text-sm text-jadwa-brown">
+              <span className="font-medium text-sm text-jadwa-brown truncate">
                 {activeCollection === ALL_DATABASES_KEY ? "All Databases" : activeCollection}
               </span>
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-gray-400 shrink-0 hidden sm:inline">
                 {collections.find((c) => c.name === activeCollection)?.document_count || 0}{" "}
                 items
               </span>
               {activeCollection === ALL_DATABASES_KEY && (
-                <span className="text-[10px] bg-jadwa-tan/10 text-jadwa-tan-dark px-1.5 py-0.5 rounded font-medium">
+                <span className="text-[10px] bg-jadwa-tan/10 text-jadwa-tan-dark px-1.5 py-0.5 rounded font-medium shrink-0 hidden sm:inline">
                   Cross-DB
                 </span>
               )}
             </div>
           ) : (
             <span className="text-sm text-gray-400">
-              Select a database to start chatting
+              Select a database to start
             </span>
           )}
         </header>
@@ -390,9 +403,9 @@ export default function Home() {
         ) : (
           <div
             ref={chatContainerRef}
-            className="flex-1 overflow-y-auto px-4 py-6"
+            className="flex-1 overflow-y-auto px-2 sm:px-4 py-4 sm:py-6"
           >
-            <div className="max-w-3xl mx-auto space-y-6">
+            <div className="max-w-3xl mx-auto space-y-4 sm:space-y-6">
               {messages.map((msg, i) => (
                 <ChatMessage key={i} message={msg} />
               ))}
