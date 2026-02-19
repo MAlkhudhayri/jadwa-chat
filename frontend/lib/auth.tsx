@@ -2,6 +2,8 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api";
+
 // ─── Types ───────────────────────────────────────────
 
 interface User {
@@ -72,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     let res: Response;
     try {
-      res = await fetch("/api/auth/login", {
+      res = await fetch(`${API_BASE}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -96,7 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (email: string, password: string, fullName: string) => {
       let res: Response;
       try {
-        res = await fetch("/api/auth/register", {
+        res = await fetch(`${API_BASE}/auth/register`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password, full_name: fullName }),

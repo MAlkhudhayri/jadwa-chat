@@ -1,6 +1,8 @@
 import { Collection, Conversation, UploadResponse, StreamEvent, Source } from "@/types";
 
-const API_BASE = "/api";
+// In production, NEXT_PUBLIC_API_URL points directly to the backend (e.g. https://backend-xxx.up.railway.app/api)
+// In local dev, falls back to /api which uses Next.js rewrites → localhost:8000
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api";
 
 // ─── Auth Header Helper ──────────────────────────────
 
