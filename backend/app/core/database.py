@@ -94,10 +94,29 @@ async def get_session_factory():
     return _session_factory
 
 
-async def init_db():
-    engine = await get_engine()
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+async def init_db(retries: int = 5, delay: float = 3.0):
+    """Create all tables. Retries on connection failure (DB may still be booting)."""
+    import asyncio
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    for attempt in range(1, retries + 1):
+        try:
+            engine = await get_engine()
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            logger.info("✅ Database tables created / verified")
+            return
+        except Exception as e:
+            logger.warning(
+                f"DB init attempt {attempt}/{retries} failed: {e}"
+            )
+            if attempt < retries:
+                await asyncio.sleep(delay)
+            else:
+                logger.error("❌ Could not connect to database after all retries")
+                raise
 
 
 async def get_db_session() -> AsyncSession:

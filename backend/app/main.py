@@ -41,19 +41,28 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("✅ OpenAI API key configured")
 
-    # Initialize database
-    await init_db()
-    logger.info("✅ Database initialized")
+    # Initialize database (with retries — Railway DB may need a moment)
+    try:
+        await init_db()
+        logger.info("✅ Database initialized")
+    except Exception as e:
+        logger.error(f"❌ Database init failed: {e} — continuing without DB")
 
     # Seed series catalog from YAML
-    await seed_series_catalog()
+    try:
+        await seed_series_catalog()
+    except Exception as e:
+        logger.warning(f"⚠️  Series catalog seeding failed: {e}")
 
     # Check Qdrant connection
-    vs = get_vectorstore_service()
-    if vs.is_connected():
-        logger.info("✅ Qdrant connected")
-    else:
-        logger.warning("⚠️  Qdrant not reachable — some features may be unavailable")
+    try:
+        vs = get_vectorstore_service()
+        if vs.is_connected():
+            logger.info("✅ Qdrant connected")
+        else:
+            logger.warning("⚠️  Qdrant not reachable — some features may be unavailable")
+    except Exception as e:
+        logger.warning(f"⚠️  Qdrant check failed: {e}")
 
     yield
 

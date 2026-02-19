@@ -5,6 +5,11 @@ RUN npm ci
 
 FROM node:20-alpine AS builder
 WORKDIR /app
+
+# Railway passes env vars as Docker build args when declared with ARG
+ARG BACKEND_URL=http://localhost:8000
+ENV BACKEND_URL=$BACKEND_URL
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
