@@ -12,7 +12,6 @@ from slowapi.util import get_remote_address
 
 from app.config import get_settings
 from app.core.database import init_db
-from app.core.seed_series import seed_series_catalog
 from app.core.seed_datasets import seed_datasets
 from app.api import chat, documents, collections, ask, upload, auth
 from app.models.schemas import HealthResponse
@@ -50,11 +49,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"❌ Database init failed: {e} — continuing without DB")
 
-    # Seed series catalog from YAML
-    try:
-        await seed_series_catalog()
-    except Exception as e:
-        logger.warning(f"⚠️  Series catalog seeding failed: {e}")
+    # (YAML catalog removed — CSV seed_datasets handles everything)
 
     # Seed SAMA/EIA datasets from shipped CSVs
     try:

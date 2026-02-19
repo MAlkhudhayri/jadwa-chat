@@ -79,6 +79,7 @@ def _parse_column(col: str) -> tuple:
     return pretty, ""
 
 
+# Old prefixes from previous seed runs with wrong collection slugs
 _STALE_PREFIXES = [
     "sama_reserves__",
     "sama_money_supply__",
@@ -94,31 +95,60 @@ _STALE_PREFIXES = [
     "saudi_balance_of_payments__",
 ]
 
+# Exact IDs from the old YAML catalog that have ZERO observations
+_STALE_EXACT_IDS = [
+    "ksa_crude_production", "ksa_oil_exports", "global_oil_demand",
+    "global_oil_supply", "brent_price", "current_account", "net_services",
+    "net_change_reserves", "govt_revenues", "govt_expenditure", "govt_debt",
+    "debt_to_gdp", "gdp_growth", "sama_reserves", "nfa_banks",
+    "govt_deposits_sama", "reserve_m3_ratio", "money_supply_m3",
+    "saibor_sofr_3m_spread", "saibor_sofr_12m_spread",
+    "capital_adequacy_ratio", "simple_ldr", "demand_deposits_pct",
+    "commercial_bank_deposits", "commercial_bank_loans", "banking_roe",
+    "npl_ratio",
+]
+
 
 async def _cleanup_stale_series(factory):
-    """Remove series from old seed runs that used wrong collection names."""
+    """Remove placeholder/stale series that have no observations."""
     session = factory()
+    removed = 0
     try:
+        # 1. Remove series matching stale prefixes
         for prefix in _STALE_PREFIXES:
             stale = await session.execute(
                 select(SeriesCatalog).where(
                     SeriesCatalog.series_id.like(f"{prefix}%")
                 )
             )
-            stale_rows = stale.scalars().all()
-            if stale_rows:
-                for row in stale_rows:
-                    # Delete observations first
-                    await session.execute(
-                        text("DELETE FROM observations WHERE series_id = :sid"),
-                        {"sid": row.series_id},
-                    )
-                    await session.delete(row)
-                await session.commit()
-                logger.info(
-                    f"  Cleaned up {len(stale_rows)} stale series "
-                    f"with prefix '{prefix}'"
+            for row in stale.scalars().all():
+                await session.execute(
+                    text("DELETE FROM observations WHERE series_id = :sid"),
+                    {"sid": row.series_id},
                 )
+                await session.delete(row)
+                removed += 1
+
+        # 2. Remove exact YAML placeholder IDs (zero observations)
+        for sid in _STALE_EXACT_IDS:
+            existing = await session.execute(
+                select(SeriesCatalog).where(SeriesCatalog.series_id == sid)
+            )
+            row = existing.scalar()
+            if row:
+                # Only delete if it has no observations
+                cnt = await session.execute(
+                    select(func.count(Observation.id)).where(
+                        Observation.series_id == sid
+                    )
+                )
+                if (cnt.scalar() or 0) == 0:
+                    await session.delete(row)
+                    removed += 1
+
+        if removed:
+            await session.commit()
+            logger.info(f"  Cleaned up {removed} stale/placeholder series")
     except Exception as e:
         logger.warning(f"  Stale cleanup warning: {e}")
         await session.rollback()

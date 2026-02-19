@@ -76,7 +76,8 @@ class SeriesDiscoveryService:
         if query in desc_lower:
             score += 3.0
 
-        # Word-level matching (filter out stop words)
+        # Word-level matching (filter out stop words and strip punctuation)
+        import re as _re
         stop_words = {
             "a", "an", "the", "is", "was", "were", "are", "be", "been", "being",
             "have", "has", "had", "do", "does", "did", "will", "would", "shall",
@@ -94,9 +95,10 @@ class SeriesDiscoveryService:
             "why", "much", "many", "tell", "please", "give", "show", "latest",
             "current", "today", "now", "last", "recent",
         }
-        query_words = set(query.split()) - stop_words
-        name_words = set(name_lower.split()) - stop_words
-        desc_words = set(desc_lower.split()) - stop_words
+        _clean = lambda w: _re.sub(r"[^a-z0-9]", "", w)
+        query_words = {_clean(w) for w in query.split()} - stop_words - {""}
+        name_words = {_clean(w) for w in name_lower.split()} - stop_words - {""}
+        desc_words = {_clean(w) for w in desc_lower.split()} - stop_words - {""}
 
         # Name word overlap
         name_overlap = query_words & name_words
@@ -106,18 +108,20 @@ class SeriesDiscoveryService:
         desc_overlap = query_words & desc_words
         score += len(desc_overlap) * 1.0
 
-        # Synonym matching
+        # Synonym matching — take BEST synonym, not cumulative
         try:
             synonyms = json.loads(series.synonyms or "[]")
+            best_syn_score = 0.0
             for syn in synonyms:
                 syn_lower = syn.lower()
                 if query in syn_lower or syn_lower in query:
-                    score += 8.0
-                    break
+                    best_syn_score = max(best_syn_score, 8.0)
+                    break  # Full match is max possible
                 syn_words = set(syn_lower.split())
                 syn_overlap = query_words & syn_words
                 if syn_overlap:
-                    score += len(syn_overlap) * 4.0
+                    best_syn_score = max(best_syn_score, len(syn_overlap) * 4.0)
+            score += best_syn_score
         except (json.JSONDecodeError, TypeError):
             pass
 
