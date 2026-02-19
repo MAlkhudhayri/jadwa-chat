@@ -523,7 +523,7 @@ class Orchestrator:
         staleness = result.get("staleness_days")
         if staleness and staleness > 90:
             latest_date = result.get("date") or result.get("latest_date", "?")
-            citation += f"\n⚠️ Data may be stale — last point: {latest_date} ({staleness} days ago)"
+            citation += f"\nNote: Data may be stale, last point: {latest_date} ({staleness} days ago)"
 
         return citation
 
