@@ -236,15 +236,14 @@ export default function Home() {
             pendingCitations = data.citations || "";
 
             // Finalize the message (immutable update)
+            // Citations are shown in the expandable sources panel — no need to
+            // append them to the message text (avoids duplicate/emoji citations).
             setMessages((prev) => {
               const updated = [...prev];
               const last = updated[updated.length - 1];
               if (last.role === "assistant") {
                 updated[updated.length - 1] = {
                   ...last,
-                  content: pendingCitations
-                    ? last.content + "\n\nCitations:\n" + pendingCitations
-                    : last.content,
                   isStreaming: false,
                 };
               }

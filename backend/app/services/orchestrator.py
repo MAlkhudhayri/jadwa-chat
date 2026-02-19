@@ -298,15 +298,22 @@ class Orchestrator:
         # ─── 3. Merge context and check if we have relevant data ──────
         merged_context = ""
         has_db_context = False
-        knowledge_source = "database"  # track where the answer comes from
+        knowledge_source = "database"
 
-        if doc_context:
-            merged_context += f"Retrieved documents/data:\n{doc_context}\n\n"
-            has_db_context = True  # Always trust Qdrant results — LLM judges relevance
-
+        # Put structured data FIRST so the LLM prioritises exact numbers
         no_data_phrases = {"No data found.", "No matching time series found."}
         if data_context and data_context not in no_data_phrases:
-            merged_context += f"Structured time series data:\n{data_context}\n\n"
+            merged_context += (
+                "STRUCTURED TIME SERIES DATA (use these exact numbers when answering):\n"
+                f"{data_context}\n\n"
+            )
+            has_db_context = True
+
+        if doc_context:
+            merged_context += (
+                "Supporting documents (use only if structured data above is insufficient):\n"
+                f"{doc_context}\n\n"
+            )
             has_db_context = True
 
         # ─── 3b. FALLBACK: web search if no relevant DB context ───────
@@ -554,7 +561,7 @@ class Orchestrator:
             series_used = [m["series_id"] for m in movers]
             parts = [f"**Top {period} movers** ({domain or 'all domains'}):"]
             for i, m in enumerate(movers, 1):
-                direction = "📈" if m["change_percent"] > 0 else "📉"
+                direction = "UP" if m["change_percent"] > 0 else "DOWN"
                 parts.append(
                     f"{i}. {direction} **{m['name']}**: {m['change_percent']:+.1f}% "
                     f"({m['current_value']} {m['unit']}, as of {m['current_date']})"
@@ -652,7 +659,7 @@ class Orchestrator:
                 tools_called.append(f"change({sid}, method={method})")
 
                 if "error" not in result:
-                    direction = "📈" if (result.get("change_percent") or 0) > 0 else "📉"
+                    direction = "UP" if (result.get("change_percent") or 0) > 0 else "DOWN"
                     data_parts.append(
                         f"{direction} **{candidate['name']}** ({method}):\n"
                         f"- Current: {result['current_value']} {candidate['unit']} ({result['current_date']})\n"
@@ -730,28 +737,34 @@ class Orchestrator:
             "  - Document text (reports, notes, analysis)\n"
             "  - Web search results (when database has no relevant data)\n\n"
             "Rules:\n"
-            "1. Answer based on the provided context. Do NOT fabricate numbers or data points.\n"
-            "2. Include specific numbers with units when available.\n"
-            "3. If the context contains relevant data, provide a confident, insightful answer.\n"
-            "4. You CAN and SHOULD derive insights, comparisons, and recommendations from "
-            "the numerical data provided (e.g., energy mix, emissions, GDP per capita).\n"
-            "5. Support bilingual (English + Arabic) when the user writes in Arabic.\n"
-            "6. Be concise and professional.\n"
-            "7. Remember prior messages in this conversation. If the user says 'more', "
+            "1. ALWAYS use STRUCTURED TIME SERIES DATA when it is provided. These are exact "
+            "numbers from our databases — report them directly and confidently.\n"
+            "2. Do NOT say 'the data is not available' if structured data IS provided above.\n"
+            "3. Include specific numbers with units when available.\n"
+            "4. If the context contains relevant data, provide a confident, insightful answer.\n"
+            "5. You CAN and SHOULD derive insights, comparisons, and recommendations from "
+            "the numerical data provided (e.g., reserves, production, rates, CPI).\n"
+            "6. Support bilingual (English + Arabic) when the user writes in Arabic.\n"
+            "7. Be concise and professional.\n"
+            "8. Remember prior messages in this conversation. If the user says 'more', "
             "'continue', or asks follow-up questions, use the chat history to understand "
             "context and provide deeper analysis.\n"
         )
 
+        # Always add the no-source-attribution rule
+        system += (
+            "9. NEVER add source attribution, citations, or emoji markers (like 📌, 🌐, 💡) "
+            "at the end of your response. The UI displays sources separately.\n"
+        )
+
         if knowledge_source == "web_search":
             system += (
-                "8. Your answer is based on WEB SEARCH results. Do NOT add any source "
-                "attribution note at the end — the UI handles source display separately.\n"
+                "10. Your answer is based on WEB SEARCH results.\n"
             )
         elif knowledge_source == "general_knowledge":
             system += (
-                "8. You have NO relevant data from databases or web search. You may answer "
-                "from your general training knowledge. Do NOT add any source attribution "
-                "note at the end — the UI handles source display separately.\n"
+                "10. You have NO relevant data from databases or web search. You may answer "
+                "from your general training knowledge but state this clearly.\n"
             )
 
         context_block = f"\n\nContext:\n{context}"
@@ -873,13 +886,20 @@ class Orchestrator:
         has_db_context = False
         knowledge_source = "database"
 
-        if doc_context:
-            merged_context += f"Retrieved documents/data:\n{doc_context}\n\n"
-            has_db_context = True  # Always trust Qdrant results — LLM judges relevance
-
+        # Put structured data FIRST so the LLM prioritises exact numbers
         no_data_phrases = {"No data found.", "No matching time series found."}
         if data_context and data_context not in no_data_phrases:
-            merged_context += f"Structured time series data:\n{data_context}\n\n"
+            merged_context += (
+                "STRUCTURED TIME SERIES DATA (use these exact numbers when answering):\n"
+                f"{data_context}\n\n"
+            )
+            has_db_context = True
+
+        if doc_context:
+            merged_context += (
+                "Supporting documents (use only if structured data above is insufficient):\n"
+                f"{doc_context}\n\n"
+            )
             has_db_context = True
 
         # ─── 3b. Web search fallback ────────────────────────────────────
