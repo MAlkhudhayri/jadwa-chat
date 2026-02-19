@@ -79,11 +79,61 @@ def _parse_column(col: str) -> tuple:
     return pretty, ""
 
 
+_STALE_PREFIXES = [
+    "sama_reserves__",
+    "sama_money_supply__",
+    "sama_banking_indicators__",
+    "sama_bank_deposits__",
+    "sama_bank_claims__",
+    "sama_banking_ratios__",
+    "sama_interest_rates__",
+    "sama_rate_differentials__",
+    "sama_foreign_assets__",
+    "saudi_cpi__",
+    "sama_monetary_ratios__",
+    "saudi_balance_of_payments__",
+]
+
+
+async def _cleanup_stale_series(factory):
+    """Remove series from old seed runs that used wrong collection names."""
+    session = factory()
+    try:
+        for prefix in _STALE_PREFIXES:
+            stale = await session.execute(
+                select(SeriesCatalog).where(
+                    SeriesCatalog.series_id.like(f"{prefix}%")
+                )
+            )
+            stale_rows = stale.scalars().all()
+            if stale_rows:
+                for row in stale_rows:
+                    # Delete observations first
+                    await session.execute(
+                        text("DELETE FROM observations WHERE series_id = :sid"),
+                        {"sid": row.series_id},
+                    )
+                    await session.delete(row)
+                await session.commit()
+                logger.info(
+                    f"  Cleaned up {len(stale_rows)} stale series "
+                    f"with prefix '{prefix}'"
+                )
+    except Exception as e:
+        logger.warning(f"  Stale cleanup warning: {e}")
+        await session.rollback()
+    finally:
+        await session.close()
+
+
 async def seed_datasets():
     """Load all shipped CSVs into PostgreSQL (idempotent)."""
     factory = await get_session_factory()
     total_inserted = 0
     total_series = 0
+
+    # First: remove series from old seed runs with wrong collection slugs
+    await _cleanup_stale_series(factory)
 
     for rel_path, collection, source in DATASETS:
         csv_path = os.path.join(BASE_DIR, rel_path)
