@@ -8,6 +8,11 @@ from sqlalchemy.orm import DeclarativeBase
 from app.config import get_settings
 
 
+def _utcnow():
+    """Naive UTC datetime — compatible with both SQLite and PostgreSQL TIMESTAMP WITHOUT TIME ZONE."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
 class Base(DeclarativeBase):
     pass
 
@@ -22,7 +27,7 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     full_name = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=_utcnow)
 
 
 # ─── Chat ─────────────────────────────────────────────
@@ -34,9 +39,8 @@ class Conversation(Base):
     title = Column(String, default="New Conversation")
     collection_name = Column(String, nullable=False)
     user_id = Column(Integer, nullable=True)  # optional FK to users
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
-                        onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
 
 class Message(Base):
@@ -47,7 +51,7 @@ class Message(Base):
     role = Column(String, nullable=False)
     content = Column(Text, nullable=False)
     sources_json = Column(Text, nullable=True)
-    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    timestamp = Column(DateTime, default=_utcnow)
 
 
 class CollectionMeta(Base):
@@ -55,7 +59,7 @@ class CollectionMeta(Base):
 
     name = Column(String, primary_key=True)
     description = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=_utcnow)
 
 
 # ─── Engine & Session ──────────────────────────────────
@@ -123,4 +127,3 @@ async def get_db_session() -> AsyncSession:
     factory = await get_session_factory()
     async with factory() as session:
         yield session
-

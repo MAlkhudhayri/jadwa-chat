@@ -39,7 +39,7 @@ class IngestionService:
             run = result.scalar()
             if run:
                 run.status = status
-                run.finished_at = datetime.now(timezone.utc)
+                run.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
                 run.rows_inserted = rows_inserted
                 run.rows_updated = rows_updated
                 run.rows_skipped = rows_skipped

@@ -76,7 +76,7 @@ class HistoryService:
                 stmt = (
                     update(Conversation)
                     .where(Conversation.id == conversation_id)
-                    .values(title=title, updated_at=datetime.now(timezone.utc))
+                    .values(title=title, updated_at=datetime.now(timezone.utc).replace(tzinfo=None))
                 )
                 await session.execute(stmt)
 

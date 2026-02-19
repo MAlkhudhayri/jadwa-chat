@@ -1,8 +1,7 @@
 """SQLAlchemy models for structured time series data."""
 
-from datetime import datetime, timezone, date
 from sqlalchemy import Column, String, Text, DateTime, Integer, Float, Date, Index
-from app.core.database import Base
+from app.core.database import Base, _utcnow
 
 
 class SeriesCatalog(Base):
@@ -19,9 +18,8 @@ class SeriesCatalog(Base):
     description = Column(Text, nullable=True)
     synonyms = Column(Text, nullable=True)  # JSON array as text
     collection_name = Column(String, nullable=True)  # which database this belongs to
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
-                        onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
 
 class Observation(Base):
@@ -45,7 +43,7 @@ class IngestionRun(Base):
     source = Column(String, nullable=False)
     dataset = Column(String, nullable=True)
     status = Column(String, default="running")  # running, success, failed
-    started_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    started_at = Column(DateTime, default=_utcnow)
     finished_at = Column(DateTime, nullable=True)
     rows_inserted = Column(Integer, default=0)
     rows_updated = Column(Integer, default=0)
@@ -63,6 +61,5 @@ class ToolCallLog(Base):
     series_id = Column(String, nullable=True)
     params = Column(Text, nullable=True)  # JSON
     result_summary = Column(Text, nullable=True)
-    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    timestamp = Column(DateTime, default=_utcnow)
     duration_ms = Column(Integer, nullable=True)
-
