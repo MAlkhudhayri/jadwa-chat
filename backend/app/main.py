@@ -155,6 +155,43 @@ def create_app() -> FastAPI:
             db_connected=db_ok,
         )
 
+    @app.get("/api/debug/series", tags=["System"])
+    async def debug_series():
+        """Check which series have observations — for deployment debugging."""
+        from app.core.database import get_session_factory
+        from app.models.timeseries import SeriesCatalog, Observation
+        from sqlalchemy import select, func
+
+        factory = await get_session_factory()
+        session = factory()
+        try:
+            result = await session.execute(
+                select(
+                    SeriesCatalog.series_id,
+                    SeriesCatalog.name,
+                    SeriesCatalog.collection_name,
+                    func.count(Observation.id).label("obs_count"),
+                )
+                .outerjoin(Observation, Observation.series_id == SeriesCatalog.series_id)
+                .group_by(SeriesCatalog.series_id, SeriesCatalog.name, SeriesCatalog.collection_name)
+                .order_by(SeriesCatalog.collection_name, SeriesCatalog.series_id)
+            )
+            rows = result.all()
+            return {
+                "total_series": len(rows),
+                "series": [
+                    {
+                        "series_id": r[0],
+                        "name": r[1],
+                        "collection": r[2],
+                        "observations": r[3],
+                    }
+                    for r in rows
+                ],
+            }
+        finally:
+            await session.close()
+
     @app.get("/", tags=["System"])
     async def root():
         return {

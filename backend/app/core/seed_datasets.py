@@ -15,7 +15,7 @@ import re
 from datetime import date, datetime
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from app.core.database import get_session_factory
 from app.models.timeseries import SeriesCatalog, Observation
@@ -148,7 +148,7 @@ async def seed_datasets():
 
                 await session.commit()
 
-                # ── Load observations (skip existing) ──────────────
+                # ── Load observations (fast bulk upsert) ───────────
                 f.seek(0)
                 reader = csv.DictReader(f)
                 batch = []
@@ -170,37 +170,34 @@ async def seed_datasets():
                         series_id = f"{_slugify(collection)}__{_slugify(col)}"
                         batch.append((series_id, obs_date, value))
 
-                # Bulk check existing
                 if batch:
-                    existing_keys = set()
-                    for sid, d, _ in batch:
-                        res = await session.execute(
-                            select(Observation.id).where(
-                                Observation.series_id == sid,
-                                Observation.date == d,
-                            )
+                    # Fast: count existing for the FIRST series to decide
+                    # if we need to load at all
+                    first_sid = batch[0][0]
+                    existing_count = await session.execute(
+                        select(func.count(Observation.id)).where(
+                            Observation.series_id == first_sid
                         )
-                        if res.scalar():
-                            existing_keys.add((sid, d))
+                    )
+                    already_loaded = (existing_count.scalar() or 0) > 0
 
-                    new_obs = [
-                        Observation(series_id=sid, date=d, value=v)
-                        for sid, d, v in batch
-                        if (sid, d) not in existing_keys
-                    ]
-
-                    if new_obs:
+                    if already_loaded:
+                        logger.info(
+                            f"  ⏭️  {filename} → \"{collection}\": "
+                            f"already seeded ({len(batch)} rows)"
+                        )
+                    else:
+                        # Insert all at once — no row-level checks
+                        new_obs = [
+                            Observation(series_id=sid, date=d, value=v)
+                            for sid, d, v in batch
+                        ]
                         session.add_all(new_obs)
                         await session.commit()
                         total_inserted += len(new_obs)
                         logger.info(
                             f"  ✅ {filename} → \"{collection}\": "
                             f"{len(new_obs)} rows inserted"
-                        )
-                    else:
-                        logger.info(
-                            f"  ⏭️  {filename} → \"{collection}\": "
-                            f"all {len(batch)} rows already exist"
                         )
                 else:
                     logger.info(f"  ⚠️  {filename}: no valid data rows")
