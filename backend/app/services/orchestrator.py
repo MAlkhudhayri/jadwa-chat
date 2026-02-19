@@ -30,6 +30,19 @@ from app.services.web_search import get_web_search_service
 
 logger = logging.getLogger(__name__)
 
+
+def _fmt_num(v) -> str:
+    """Format a number for LLM readability: commas + 2 decimal places."""
+    if v is None:
+        return "N/A"
+    try:
+        f = float(v)
+        if abs(f) >= 1_000:
+            return f"{f:,.2f}"
+        return f"{f:.4f}" if abs(f) < 1 else f"{f:.2f}"
+    except (ValueError, TypeError):
+        return str(v)
+
 # ──────────────────────────────────────────────────────────────────────────────
 # LLM-based intent classifier  (replaces all hardcoded keyword lists)
 # ──────────────────────────────────────────────────────────────────────────────
@@ -494,7 +507,7 @@ class Orchestrator:
         source = candidate.get("source", "")
         source_url = candidate.get("source_url", "")
 
-        citation = f"— {sid} — {name}: {unit}, Source: {source}"
+        citation = f"— {sid} , {name}: {unit}, Source: {source}"
         if source_url:
             citation += f" · [{source}]({source_url})"
         if extra:
@@ -587,7 +600,7 @@ class Orchestrator:
                     f"({result['overlapping_periods']} overlapping observations)"
                 )
                 citations.append(
-                    f"— Comparison: {sid_a} vs {sid_b} | "
+                    f" Comparison: {sid_a} vs {sid_b} | "
                     f"r = {result['correlation']}, {result['overlapping_periods']} data points"
                 )
             else:
@@ -612,7 +625,7 @@ class Orchestrator:
 
                 if "error" not in result:
                     data_parts.append(
-                        f"**{candidate['name']}** — {window}-period rolling {method}:\n"
+                        f"**{candidate['name']}** , {window}-period rolling {method}:\n"
                         f"- Current rolling value: {result['current_rolling_value']} {candidate['unit']}\n"
                         f"- Current raw value: {result['current_raw_value']} {candidate['unit']}\n"
                         f"- Latest date: {result['latest_date']}\n"
@@ -656,18 +669,23 @@ class Orchestrator:
         # ── get_series: date-range query ─────────────────────────────────
         elif tool == "get_series":
             start, end = _extract_date_range(question)
-            for candidate in candidates[:2]:
+            # Only use the BEST match to avoid noise
+            for candidate in candidates[:1]:
                 sid = candidate["series_id"]
                 result = await analytics.get_series(sid, start=start, end=end)
                 tools_called.append(f"get_series({sid})")
 
                 if "error" not in result and result.get("observations"):
                     obs = result["observations"]
-                    obs_text = ", ".join(f"{o['date']}: {o['value']}" for o in obs[:10])
+                    unit = candidate.get("unit") or result.get("unit") or ""
+                    obs_text = ", ".join(
+                        f"{o['date']}: {_fmt_num(o['value'])} {unit}".strip()
+                        for o in obs[:10]
+                    )
                     if len(obs) > 10:
                         obs_text += f" ... ({len(obs)} total observations)"
                     data_parts.append(
-                        f"**{candidate['name']}** ({candidate['unit']}): {obs_text}"
+                        f"**{candidate['name']}** ({unit or 'value'}): {obs_text}"
                     )
                     citations.append(self._build_citation(
                         candidate, result, "get_series",
@@ -685,8 +703,9 @@ class Orchestrator:
 
                 if "error" not in result:
                     data_type = "forecast" if result.get("is_forecast") else "actual"
+                    unit = candidate.get("unit") or result.get("unit") or ""
                     data_parts.append(
-                        f"**{candidate['name']}**: {result.get('value')} {candidate['unit']} "
+                        f"**{candidate['name']}**: {_fmt_num(result.get('value'))} {unit} "
                         f"(as of {result.get('date')}, {data_type})"
                     )
                     citations.append(self._build_citation(candidate, result, "latest"))

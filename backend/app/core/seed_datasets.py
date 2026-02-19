@@ -57,17 +57,32 @@ def _slugify(text: str) -> str:
     return s.strip("_")
 
 
-def _pretty_name(col: str) -> str:
-    """Turn a column slug into a human readable name."""
-    return (
-        col.replace("_", " ")
-        .title()
-        .replace("Mn ", "(mn ")
-        .replace("Pct", "(%)")
-        .replace("Usd", "USD")
-        .replace("Bbl", "bbl")
-        .replace("Sar", "SAR")
-    )
+# ── Human-readable name + unit extraction ────────────────────────────────────
+# Column names from CSVs look like: total_reserves_mn_sar, brent_price_usd_bbl
+# We split them into a clean name and a unit string.
+
+UNIT_MAP = {
+    "mn_sar":     "mn SAR",
+    "mn_usd":     "mn USD",
+    "mn_bbl_day": "mn bbl/day",
+    "usd_bbl":    "USD/bbl",
+    "pct":        "%",
+    "bps":        "bps",
+}
+
+
+def _parse_column(col: str) -> tuple[str, str]:
+    """Return (human_name, unit) from a CSV column name slug."""
+    # Try to find the longest matching unit suffix
+    for suffix, unit in sorted(UNIT_MAP.items(), key=lambda x: -len(x[0])):
+        if col.endswith(f"_{suffix}"):
+            name_part = col[: -(len(suffix) + 1)]
+            pretty = name_part.replace("_", " ").title()
+            return pretty, unit
+
+    # No unit suffix found
+    pretty = col.replace("_", " ").title()
+    return pretty, ""
 
 
 async def seed_datasets():
@@ -97,21 +112,38 @@ async def seed_datasets():
                             SeriesCatalog.series_id == series_id
                         )
                     )
-                    if not existing.scalar():
+                    pretty_name, unit = _parse_column(col)
+
+                    existing_obj = existing.scalar()
+                    if existing_obj:
+                        # Update name/unit if they were previously blank
+                        changed = False
+                        if not existing_obj.unit and unit:
+                            existing_obj.unit = unit
+                            changed = True
+                        if existing_obj.name != pretty_name:
+                            existing_obj.name = pretty_name
+                            changed = True
+                        if changed:
+                            await session.commit()
+                    else:
                         session.add(
                             SeriesCatalog(
                                 series_id=series_id,
-                                name=_pretty_name(col),
+                                name=pretty_name,
                                 domain=collection,
                                 source=source,
-                                description=f"{col.replace('_', ' ')} from {source} ({filename})",
+                                unit=unit or None,
+                                description=f"{pretty_name} ({unit}) from {source}" if unit else f"{pretty_name} from {source}",
                                 synonyms=json.dumps(
                                     [col.lower().replace("_", " "),
+                                     pretty_name.lower(),
                                      series_id.replace("_", " ")]
                                 ),
                                 collection_name=collection,
                             )
                         )
+                        total_series += 1
                         total_series += 1
 
                 await session.commit()
