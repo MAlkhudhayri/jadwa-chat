@@ -83,11 +83,16 @@ export default function WelcomeScreen({
           </div>
         </div>
 
-        {activeCollection && (
+        {activeCollection && activeCollection !== "all-databases" && (
           <button onClick={onOpenUpload} className="btn-gold mt-6 inline-flex items-center gap-2">
             <Upload size={16} />
             Upload documents to &quot;{activeCollection}&quot;
           </button>
+        )}
+        {activeCollection === "all-databases" && (
+          <p className="mt-6 text-xs text-gray-400">
+            Create or select a specific database from the sidebar to upload documents.
+          </p>
         )}
 
         <div className="mt-8 flex items-center justify-center gap-2 text-xs text-gray-400">

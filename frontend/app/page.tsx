@@ -331,12 +331,14 @@ export default function Home() {
       <main className="flex-1 flex flex-col min-w-0 h-full">
         {/* Top Bar */}
         <header className="h-14 border-b border-jadwa-border bg-white flex items-center px-4 shrink-0">
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="btn-ghost p-2 mr-2"
-          >
-            <Menu size={18} />
-          </button>
+          {!sidebarOpen && (
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="btn-ghost p-2 mr-2"
+            >
+              <Menu size={18} />
+            </button>
+          )}
 
           {activeCollection ? (
             <div className="flex items-center gap-2">
@@ -403,6 +405,7 @@ export default function Home() {
         {/* Input */}
         {/* Empty collection warning */}
         {activeCollection &&
+          activeCollection !== ALL_DATABASES_KEY &&
           collections.find((c) => c.name === activeCollection)?.document_count === 0 &&
           messages.length === 0 && (
             <div className="bg-amber-50 border-t border-amber-200 px-4 py-3 flex items-center gap-2 text-sm text-amber-700">

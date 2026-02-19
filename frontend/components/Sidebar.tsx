@@ -237,7 +237,7 @@ export default function Sidebar({
                   </div>
                 )}
 
-                {activeCollection && (
+                {activeCollection && activeCollection !== "all-databases" && (
                   <button
                     onClick={onOpenUpload}
                     className="flex items-center gap-2 px-2.5 py-2 text-sm text-jadwa-tan/80 hover:text-jadwa-tan transition-colors w-full"
