@@ -1,6 +1,8 @@
-# JadwaChat — AI Document Assistant
+# JadwaChat v0.2
+
 
 A production-grade RAG (Retrieval-Augmented Generation) chat system for querying multiple document databases. Built for Jadwa Investment.
+<img width="1161" height="572" alt="jadwachat_techstack drawio" src="https://github.com/user-attachments/assets/f48744a4-3f32-4aca-8930-08287fed6249" />
 
 ## Features
 
