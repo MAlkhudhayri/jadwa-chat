@@ -15,10 +15,10 @@ export default function WelcomeScreen({
   onOpenUpload,
 }: WelcomeScreenProps) {
   return (
-    <div className="flex-1 flex items-center justify-center p-4 sm:p-8 overflow-y-auto">
-      <div className="max-w-lg w-full text-center">
+    <div className="flex-1 flex items-center justify-center p-8">
+      <div className="max-w-lg text-center">
         {/* Logo */}
-        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-[22%] overflow-hidden mx-auto mb-4 sm:mb-6 shadow-lg">
+        <div className="w-16 h-16 rounded-[22%] overflow-hidden mx-auto mb-6 shadow-lg">
           <Image
             src="/jadwa-logo.png"
             alt="Jadwa Investment"
@@ -28,20 +28,19 @@ export default function WelcomeScreen({
           />
         </div>
 
-        <h2 className="text-xl sm:text-2xl font-bold text-jadwa-brown mb-2">
+        <h2 className="text-2xl font-bold text-jadwa-brown mb-2">
           Welcome to JadwaChat
         </h2>
-        <p className="text-gray-500 mb-5 sm:mb-8 leading-relaxed text-sm sm:text-base px-2 sm:px-0">
-          Your AI powered document assistant. Upload documents to a database and
+        <p className="text-gray-500 mb-8 leading-relaxed">
+          Your AI-powered document assistant. Upload documents to a database and
           start asking questions, JadwaChat will find the answers.
         </p>
 
         {/* Steps */}
-        <div className="grid gap-3 sm:gap-4 text-left">
-          <div className="flex items-start gap-3 sm:gap-4 bg-white border border-jadwa-border rounded-xl p-3 sm:p-4">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-jadwa-tan/10 flex items-center justify-center shrink-0">
-              <Database size={16} className="text-jadwa-tan sm:hidden" />
-              <Database size={18} className="text-jadwa-tan hidden sm:block" />
+        <div className="grid gap-4 text-left">
+          <div className="flex items-start gap-4 bg-white border border-jadwa-border rounded-xl p-4">
+            <div className="w-10 h-10 rounded-lg bg-jadwa-tan/10 flex items-center justify-center shrink-0">
+              <Database size={18} className="text-jadwa-tan" />
             </div>
             <div>
               <h3 className="font-semibold text-sm text-jadwa-brown mb-0.5">
@@ -53,10 +52,9 @@ export default function WelcomeScreen({
             </div>
           </div>
 
-          <div className="flex items-start gap-3 sm:gap-4 bg-white border border-jadwa-border rounded-xl p-3 sm:p-4">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-jadwa-tan/10 flex items-center justify-center shrink-0">
-              <Upload size={16} className="text-jadwa-tan sm:hidden" />
-              <Upload size={18} className="text-jadwa-tan hidden sm:block" />
+          <div className="flex items-start gap-4 bg-white border border-jadwa-border rounded-xl p-4">
+            <div className="w-10 h-10 rounded-lg bg-jadwa-tan/10 flex items-center justify-center shrink-0">
+              <Upload size={18} className="text-jadwa-tan" />
             </div>
             <div>
               <h3 className="font-semibold text-sm text-jadwa-brown mb-0.5">
@@ -69,10 +67,9 @@ export default function WelcomeScreen({
             </div>
           </div>
 
-          <div className="flex items-start gap-3 sm:gap-4 bg-white border border-jadwa-border rounded-xl p-3 sm:p-4">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-jadwa-tan/10 flex items-center justify-center shrink-0">
-              <MessageSquare size={16} className="text-jadwa-tan sm:hidden" />
-              <MessageSquare size={18} className="text-jadwa-tan hidden sm:block" />
+          <div className="flex items-start gap-4 bg-white border border-jadwa-border rounded-xl p-4">
+            <div className="w-10 h-10 rounded-lg bg-jadwa-tan/10 flex items-center justify-center shrink-0">
+              <MessageSquare size={18} className="text-jadwa-tan" />
             </div>
             <div>
               <h3 className="font-semibold text-sm text-jadwa-brown mb-0.5">

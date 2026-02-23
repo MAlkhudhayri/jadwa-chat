@@ -103,6 +103,11 @@ async def init_db(retries: int = 5, delay: float = 3.0):
     import asyncio
     import logging
 
+    # Import model modules here (not at top level) to avoid circular imports.
+    # This ensures Base.metadata knows about all tables before create_all().
+    import app.models.timeseries  # noqa: F401
+    import app.models.signals     # noqa: F401
+
     logger = logging.getLogger(__name__)
 
     for attempt in range(1, retries + 1):

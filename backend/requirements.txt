@@ -28,8 +28,14 @@ psycopg2-binary==2.9.10
 
 # Data Processing
 pandas>=2.1.0
+numpy>=1.26.0
 openpyxl>=3.1.0
 pyyaml>=6.0
+
+# Small ML Models (in-process, CPU-only)
+scikit-learn>=1.4.0
+ruptures>=1.1.9
+sentence-transformers>=3.0.0
 
 # Web Search (fallback)
 ddgs>=9.0.0

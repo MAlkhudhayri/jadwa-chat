@@ -98,10 +98,16 @@ export interface AskResponse {
   sources?: Source[];
 }
 
+export interface SignalContextPayload {
+  type: string;
+  domain?: string;
+}
+
 export async function askQuestion(
   question: string,
   collectionName?: string,
-  conversationId?: string
+  conversationId?: string,
+  signalContext?: SignalContextPayload[],
 ): Promise<AskResponse> {
   const res = await fetch(`${API_BASE}/ask/`, {
     method: "POST",
@@ -110,6 +116,7 @@ export async function askQuestion(
       question,
       collection_name: collectionName || undefined,
       conversation_id: conversationId || undefined,
+      signal_context: signalContext?.length ? signalContext : undefined,
     }),
   });
 
@@ -136,6 +143,7 @@ export async function askQuestionStream(
   collectionName: string | undefined,
   conversationId: string | undefined,
   callbacks: AskStreamCallbacks,
+  signalContext?: SignalContextPayload[],
 ): Promise<void> {
   const res = await fetch(`${API_BASE}/ask/stream`, {
     method: "POST",
@@ -144,6 +152,7 @@ export async function askQuestionStream(
       question,
       collection_name: collectionName || undefined,
       conversation_id: conversationId || undefined,
+      signal_context: signalContext?.length ? signalContext : undefined,
     }),
   });
 

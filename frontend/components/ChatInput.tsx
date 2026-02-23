@@ -1,16 +1,27 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Loader2 } from "lucide-react";
+import { Send, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import SignalContextPicker, {
+  type SignalContextItem,
+} from "./SignalContextPicker";
 
 interface ChatInputProps {
   onSend: (message: string) => void;
   disabled: boolean;
   placeholder?: string;
+  signalContext: SignalContextItem[];
+  onSignalContextChange: (items: SignalContextItem[]) => void;
 }
 
-export default function ChatInput({ onSend, disabled, placeholder }: ChatInputProps) {
+export default function ChatInput({
+  onSend,
+  disabled,
+  placeholder,
+  signalContext,
+  onSignalContextChange,
+}: ChatInputProps) {
   const [message, setMessage] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -43,10 +54,44 @@ export default function ChatInput({ onSend, disabled, placeholder }: ChatInputPr
     }
   };
 
+  const removeChip = (item: SignalContextItem) => {
+    onSignalContextChange(
+      signalContext.filter(
+        (s) => !(s.type === item.type && s.domain === item.domain)
+      )
+    );
+  };
+
   return (
     <div className="border-t border-jadwa-border bg-white px-2 sm:px-4 py-2 sm:py-3">
       <div className="max-w-3xl mx-auto">
+        {/* Signal context chips */}
+        {signalContext.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {signalContext.map((item) => (
+              <span
+                key={`${item.type}-${item.domain || ""}`}
+                className="inline-flex items-center gap-1 bg-jadwa-brown/8 text-jadwa-brown border border-jadwa-brown/15 rounded-md px-2 py-0.5 text-[11px] font-medium"
+              >
+                {item.label}
+                <button
+                  onClick={() => removeChip(item)}
+                  className="hover:text-red-500 transition-colors ml-0.5"
+                >
+                  <X size={10} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
         <div className="flex items-end gap-2 sm:gap-3 bg-jadwa-surface border border-jadwa-border rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 focus-within:ring-2 focus-within:ring-jadwa-brown/15 focus-within:border-jadwa-brown/30 transition-all">
+          {/* Signal context picker */}
+          <SignalContextPicker
+            selected={signalContext}
+            onChange={onSignalContextChange}
+          />
+
           <textarea
             ref={textareaRef}
             value={message}
@@ -81,4 +126,3 @@ export default function ChatInput({ onSend, disabled, placeholder }: ChatInputPr
     </div>
   );
 }
-

@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ email, password }),
       });
     } catch (e) {
-      throw new Error("Cannot reach server — backend may be starting up. Try again in 30 seconds.");
+      throw new Error("Cannot reach server, backend may be starting up. Try again in 30 seconds.");
     }
 
     if (!res.ok) {
@@ -104,7 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           body: JSON.stringify({ email, password, full_name: fullName }),
         });
       } catch (e) {
-        throw new Error("Cannot reach server — backend may be starting up. Try again in 30 seconds.");
+        throw new Error("Cannot reach server, backend may be starting up. Try again in 30 seconds.");
       }
 
       if (!res.ok) {

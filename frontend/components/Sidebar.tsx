@@ -14,7 +14,9 @@ import {
   FolderOpen,
   Layers,
   LogOut,
+  BarChart3,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Collection, Conversation } from "@/types";
 import { cn, formatDate, truncate } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
@@ -33,6 +35,19 @@ interface SidebarProps {
   onOpenUpload: () => void;
   isOpen: boolean;
   onToggle: () => void;
+}
+
+function SignalsDashboardButton() {
+  const router = useRouter();
+  return (
+    <button
+      onClick={() => router.push("/signals")}
+      className="w-full flex items-center gap-2 mt-2 px-3 py-2.5 rounded-lg text-sm text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+    >
+      <BarChart3 size={16} className="text-jadwa-tan" />
+      Signal Dashboard
+    </button>
+  );
 }
 
 function UserFooter() {
@@ -155,6 +170,8 @@ export default function Sidebar({
                 <MessageSquarePlus size={16} />
                 New Chat
               </button>
+
+              <SignalsDashboardButton />
             </div>
 
             {/* Collections */}

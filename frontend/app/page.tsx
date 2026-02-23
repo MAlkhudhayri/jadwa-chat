@@ -20,8 +20,11 @@ import {
   deleteCollection,
   deleteConversation,
   askQuestionStream,
+  type SignalContextPayload,
 } from "@/lib/api";
 import { ChatMessage as ChatMessageType, Collection, Conversation } from "@/types";
+import type { SignalContextItem } from "@/components/SignalContextPicker";
+import SignalPanel from "@/components/SignalPanel";
 
 export default function Home() {
   const { user, isLoading: authLoading } = useAuth();
@@ -45,6 +48,8 @@ export default function Home() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [signalContext, setSignalContext] = useState<SignalContextItem[]>([]);
+  const [signalPanelOpen, setSignalPanelOpen] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -197,6 +202,11 @@ export default function Home() {
     setIsStreaming(true);
     setError(null);
 
+    const pinnedSignalContext: SignalContextPayload[] = signalContext.map((s) => ({
+      type: s.type,
+      domain: s.domain,
+    }));
+
     let pendingCitations = "";
 
     try {
@@ -236,14 +246,15 @@ export default function Home() {
             pendingCitations = data.citations || "";
 
             // Finalize the message (immutable update)
-            // Citations are shown in the expandable sources panel — no need to
-            // append them to the message text (avoids duplicate/emoji citations).
             setMessages((prev) => {
               const updated = [...prev];
               const last = updated[updated.length - 1];
               if (last.role === "assistant") {
                 updated[updated.length - 1] = {
                   ...last,
+                  content: pendingCitations
+                    ? last.content + "\n\nCitations:\n" + pendingCitations
+                    : last.content,
                   isStreaming: false,
                 };
               }
@@ -275,6 +286,7 @@ export default function Home() {
             });
           },
         },
+        pinnedSignalContext,
       );
     } catch (err: any) {
       console.error("Chat error:", err);
@@ -376,6 +388,9 @@ export default function Home() {
               Select a database to start
             </span>
           )}
+
+          {/* Spacer — signal panel toggle is now in the panel itself */}
+          <div className="ml-auto" />
         </header>
 
         {/* Error Banner */}
@@ -446,8 +461,16 @@ export default function Home() {
               ? "Ask across all databases..."
               : `Ask about "${activeCollection}"...`
           }
+          signalContext={signalContext}
+          onSignalContextChange={setSignalContext}
         />
       </main>
+
+      {/* Signal Engine Panel (right sidebar — always visible, collapses to vertical teal bar) */}
+      <SignalPanel
+        isOpen={signalPanelOpen}
+        onToggle={() => setSignalPanelOpen(!signalPanelOpen)}
+      />
 
       {/* Upload Modal — not available on "All Databases" */}
       {activeCollection && activeCollection !== ALL_DATABASES_KEY && (

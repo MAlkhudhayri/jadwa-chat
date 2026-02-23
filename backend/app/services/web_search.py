@@ -75,7 +75,7 @@ class WebSearchService:
         """Build citation strings for web results."""
         citations = []
         for r in results:
-            citations.append(f"[{r.title}]({r.url})")
+            citations.append(f"🌐 [{r.title}]({r.url})")
         return citations
 
 

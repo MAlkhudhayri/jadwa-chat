@@ -52,6 +52,7 @@ You are an intent classifier for a financial data chat assistant.
 The assistant has access to:
   - Time-series databases (oil prices, GDP, reserves, banking ratios, etc.)
   - Uploaded documents and reports (PDF, DOCX, spreadsheets)
+  - A quant signal engine with macro scorecards, anomaly alerts, and cross-series analysis
   - Web search (as a fallback for current events)
 
 Classify the user's question into EXACTLY ONE of these intents:
@@ -65,13 +66,20 @@ Classify the user's question into EXACTLY ONE of these intents:
               "Tell me about the January 2024 report".
   mixed     - The question needs BOTH data AND document context.
               Examples: "How does the report explain the GDP decline in 2023?"
+  signal    - The user wants macro analysis, signals, anomalies, domain
+              scorecards, regime assessment, cross-series insights, or
+              the "big picture" view. These go beyond raw data retrieval.
+              Examples: "What's happening in oil?", "Any anomalies?",
+              "Give me the macro scorecard", "Is banking deteriorating?",
+              "How does oil relate to reserves?",
+              "What should I watch this month?", "Macro outlook?"
   general   - Greetings, meta questions, off-topic, or anything that does NOT
               need the financial databases or documents.
               Examples: "Hello", "Who are you?", "Who won the Champions League?",
               "What's the weather?", "مرحبا"
 
 Respond with ONLY a valid JSON object, no markdown, no explanation.
-Format: {{"intent": "<one of: data, document, mixed, general>", "is_followup": <true or false>}}
+Format: {{"intent": "<one of: data, document, mixed, general, signal>", "is_followup": <true or false>}}
 
 Set is_followup to true if the question looks like a continuation of a prior
 conversation (e.g. "more?", "go on", "what about exports?").\
@@ -128,7 +136,7 @@ async def classify_intent(question: str, chat_history: Optional[List[dict]] = No
         result = json.loads(raw)
 
         intent = result.get("intent", "document")
-        if intent not in ("data", "document", "mixed", "general"):
+        if intent not in ("data", "document", "mixed", "general", "signal"):
             intent = "document"
 
         classified = {
@@ -208,8 +216,35 @@ class Orchestrator:
                 messages.append(AIMessage(content=msg["content"]))
         return messages
 
+    async def _resolve_signal_context(self, signal_context: List[dict]) -> str:
+        """Fetch and format user-pinned signal engine items into LLM-readable text."""
+        from app.services.quant.tools import execute_tool
+
+        parts = []
+        for item in signal_context:
+            item_type = item.get("type")
+            try:
+                if item_type == "scorecard":
+                    domain = item.get("domain", "all")
+                    result = await execute_tool("get_scorecard", {"domain": domain})
+                    if domain == "all":
+                        parts.append(self._format_domain_context(result))
+                    else:
+                        parts.append(self._format_domain_context(result))
+                elif item_type == "anomalies":
+                    result = await execute_tool("get_anomalies", {"severity": "all"})
+                    parts.append(self._format_anomaly_context(result))
+                elif item_type == "cross_series":
+                    result = await execute_tool("get_cross_series", {})
+                    parts.append(self._format_cross_series_context(result))
+            except Exception as e:
+                logger.warning(f"Failed to resolve signal context {item}: {e}")
+
+        return "\n\n".join(parts)
+
     async def ask(self, question: str, collection_name: Optional[str] = None,
-                  conversation_id: Optional[str] = None) -> dict:
+                  conversation_id: Optional[str] = None,
+                  signal_context: Optional[List[dict]] = None) -> dict:
         """Main entry point — classify, discover, execute, assemble.
         
         Strategy:
@@ -264,6 +299,15 @@ class Orchestrator:
                 )
                 tools_called.append("document_rag")
 
+                # Cross-encoder reranking for quality lift
+                if retrieved_docs:
+                    try:
+                        from app.services.models.reranker import rerank
+                        retrieved_docs = rerank(search_query, retrieved_docs, top_k=10)
+                        tools_called.append("reranker")
+                    except Exception:
+                        pass  # Graceful fallback — use original order
+
                 if retrieved_docs:
                     doc_parts = []
                     for doc in retrieved_docs:
@@ -275,7 +319,7 @@ class Orchestrator:
                             doc_sources.append(Source(
                                 content=content[:500],
                                 metadata=metadata,
-                                score=doc.get("score", 0.0),
+                                score=doc.get("rerank_score", doc.get("score", 0.0)),
                                 page=metadata.get("page"),
                                 filename=metadata.get("source"),
                             ))
@@ -285,37 +329,59 @@ class Orchestrator:
             except Exception as e:
                 logger.warning(f"Document RAG failed: {e}")
 
-        # ─── 2. Query structured time series ──────────────────────────
-        # Always search unless it's a short greeting.
-        # Catches cases where intent classifier misses a data question.
-        if not is_short_greeting:
+        # ─── 2. Signal engine or structured time series ─────────────────
+        if intent == "signal" and not is_short_greeting:
+            # Signal intent → quant engine
+            signal_context, signal_series, signal_tools, signal_cites = await self._handle_signal(question)
+            data_context = signal_context
+            series_used = signal_series
+            tools_called.extend(signal_tools)
+            citations.extend(signal_cites)
+        elif not is_short_greeting:
+            # Data/mixed/document → structured time series
             data_context, series_used, ts_tools, citations = await self._handle_data(
                 question, collection_name=None
             )
             tools_called.extend(ts_tools)
 
-            # Add time series results as sources so they show in the UI
-            if data_context and data_context not in {"No data found.", "No matching time series found."}:
-                from app.models.schemas import Source
-                for sid in series_used[:3]:  # max 3 series sources
-                    pretty = sid.replace("__", " / ").replace("_", " ").title()
-                    doc_sources.insert(0, Source(
-                        content=data_context[:500],
-                        metadata={
-                            "source": "PostgreSQL Time Series",
-                            "title": pretty,
-                            "type": "time_series",
-                            "series_id": sid,
-                        },
-                        score=1.0,
-                        page=None,
-                        filename=f"📊 {pretty}",
-                    ))
+        # Add time series / signal results as sources so they show in the UI
+        if not is_short_greeting and data_context and data_context not in {"No data found.", "No matching time series found."}:
+            from app.models.schemas import Source
+            source_type = "signal_engine" if intent == "signal" else "time_series"
+            source_label = "Quant Signal Engine" if intent == "signal" else "PostgreSQL Time Series"
+            for sid in series_used[:3]:
+                pretty = sid.replace("__", " / ").replace("_", " ").title()
+                doc_sources.insert(0, Source(
+                    content=data_context[:500],
+                    metadata={
+                        "source": source_label,
+                        "title": pretty,
+                        "type": source_type,
+                        "series_id": sid,
+                    },
+                    score=1.0,
+                    page=None,
+                    filename=f" {pretty}",
+                ))
+
+        # ─── 2b. Resolve user-pinned signal context ─────────────────────
+        pinned_signal_text = ""
+        if signal_context:
+            pinned_signal_text = await self._resolve_signal_context(signal_context)
+            tools_called.append("signal_context_pinned")
 
         # ─── 3. Merge context and check if we have relevant data ──────
         merged_context = ""
         has_db_context = False
-        knowledge_source = "database"
+        knowledge_source = "signal_engine" if intent == "signal" else "database"
+
+        if pinned_signal_text:
+            merged_context += (
+                "USER-PINNED SIGNAL ENGINE DATA (the user explicitly attached this for context — always reference it):\n"
+                f"{pinned_signal_text}\n\n"
+            )
+            has_db_context = True
+            knowledge_source = "signal_engine"
 
         # Put structured data FIRST so the LLM prioritises exact numbers
         no_data_phrases = {"No data found.", "No matching time series found."}
@@ -751,6 +817,222 @@ class Orchestrator:
         data_context = "\n".join(data_parts) if data_parts else "No data found."
         return data_context, series_used, tools_called, citations
 
+    # ─── Signal engine handler ─────────────────────────────────────────────
+
+    async def _handle_signal(self, question: str) -> tuple:
+        """Route signal queries to the quant engine via the tool registry.
+
+        Returns (context_str, series_used, tools_called, citations)
+        same tuple shape as _handle_data.
+        """
+        from app.services.quant.tools import execute_tool
+
+        q = question.lower()
+        tools_called = []
+        series_used = []
+        citations = []
+
+        try:
+            # Sub-routing: keyword-based selection of which tool(s) to call
+            if any(kw in q for kw in ("anomaly", "anomalies", "unusual", "alert", "flag", "watch")):
+                result = await execute_tool("get_anomalies", {"severity": "all"})
+                tools_called.append("get_anomalies(severity=all)")
+                context = self._format_anomaly_context(result)
+
+            elif any(kw in q for kw in ("compare", "relationship", "correlation", "diverge", "divergence", "cross")):
+                result = await execute_tool("get_cross_series", {})
+                tools_called.append("get_cross_series()")
+                context = self._format_cross_series_context(result)
+
+            elif any(kw in q for kw in ("oil", "energy", "brent", "crude", "opec")):
+                result = await execute_tool("get_scorecard", {"domain": "oil"})
+                tools_called.append("get_scorecard(domain=oil)")
+                context = self._format_domain_context(result)
+
+            elif any(kw in q for kw in ("banking", "bank", "loan", "deposit", "npl", "credit")):
+                result = await execute_tool("get_scorecard", {"domain": "banking"})
+                tools_called.append("get_scorecard(domain=banking)")
+                context = self._format_domain_context(result)
+
+            elif any(kw in q for kw in ("monetary", "reserves", "money supply", "saibor", "m1", "m2")):
+                result = await execute_tool("get_scorecard", {"domain": "monetary"})
+                tools_called.append("get_scorecard(domain=monetary)")
+                context = self._format_domain_context(result)
+
+            elif any(kw in q for kw in ("balance of payments", "bop", "current account", "trade")):
+                result = await execute_tool("get_scorecard", {"domain": "bop"})
+                tools_called.append("get_scorecard(domain=bop)")
+                context = self._format_domain_context(result)
+
+            elif any(kw in q for kw in ("inflation", "cpi", "prices", "price level")):
+                result = await execute_tool("get_scorecard", {"domain": "inflation"})
+                tools_called.append("get_scorecard(domain=inflation)")
+                context = self._format_domain_context(result)
+
+            else:
+                # Default: full dashboard + anomalies
+                dashboard = await execute_tool("get_scorecard", {"domain": "all"})
+                tools_called.append("get_scorecard(domain=all)")
+                anomalies = await execute_tool("get_anomalies", {"severity": "all"})
+                tools_called.append("get_anomalies(severity=all)")
+                cross = await execute_tool("get_cross_series", {})
+                tools_called.append("get_cross_series()")
+                context = self._format_full_dashboard_context(dashboard, anomalies, cross)
+
+        except Exception as e:
+            logger.error(f"Signal handler failed: {e}")
+            context = f"Signal engine error: {str(e)}"
+
+        citations.append("— Source: JadwaChat Quant Signal Engine")
+        return context, series_used, tools_called, citations
+
+    def _format_anomaly_context(self, result: dict) -> str:
+        """Format anomaly alerts into LLM-readable context."""
+        alerts = result.get("alerts", [])
+        if not alerts:
+            return "ANOMALY REPORT\n══════════════\nNo active anomalies detected. All series within normal ranges."
+
+        lines = [
+            f"ANOMALY REPORT ({result.get('total', 0)} active alerts)",
+            "══════════════════════════════════════",
+            f"Critical: {result.get('critical_count', 0)} | Warning: {result.get('warning_count', 0)} | Watch: {result.get('watch_count', 0)}",
+            "",
+        ]
+        severity_icons = {"critical": "🔴", "warning": "⚠️", "watch": "🔵"}
+        for a in alerts:
+            icon = severity_icons.get(a["severity"], "•")
+            lines.append(
+                f"{icon} [{a['severity'].upper()}] {a['series_name']} — {a['alert_type']}"
+            )
+            lines.append(f"   {a['description']}")
+            lines.append("")
+
+        return "\n".join(lines)
+
+    def _format_domain_context(self, result: dict) -> str:
+        """Format a single domain scorecard into LLM-readable context."""
+        if "error" in result:
+            return f"Signal engine: {result['error']}"
+
+        direction_icons = {"improving": "↑", "stable": "→", "deteriorating": "↓"}
+        d_icon = direction_icons.get(result.get("direction", ""), "")
+
+        lines = [
+            f"DOMAIN SCORECARD: {result.get('label', result.get('domain', '?')).upper()}",
+            "══════════════════════════════════════",
+            f"Score: {result.get('score', 0):+.1f} ({result.get('direction', 'stable')} {d_icon})",
+            f"Prior Score: {result.get('prior_score', 'N/A')}",
+            f"Active Alerts: {result.get('alert_count', 0)}",
+            "",
+            "COMPONENTS:",
+        ]
+
+        components = result.get("components", {})
+        for sid, comp in components.items():
+            if not comp.get("available"):
+                continue
+            name = comp.get("name", sid)
+            signal = comp.get("signal", "N/A")
+            value = comp.get("value")
+            unit = comp.get("unit", "")
+            mom = comp.get("mom_pct")
+            yoy = comp.get("yoy_pct")
+            z = comp.get("z_score")
+
+            parts = [f"  {name}: {signal}"]
+            if value is not None:
+                parts.append(f"  Value: {value} {unit}")
+            metrics = []
+            if mom is not None:
+                metrics.append(f"{mom:+.1f}% MoM")
+            if yoy is not None:
+                metrics.append(f"{yoy:+.1f}% YoY")
+            if z is not None:
+                metrics.append(f"z={z:+.1f}")
+            if metrics:
+                parts.append(f"  ({', '.join(metrics)})")
+            lines.append(" | ".join(parts))
+
+        return "\n".join(lines)
+
+    def _format_cross_series_context(self, result: dict) -> str:
+        """Format cross-series analysis into LLM-readable context."""
+        divergences = result.get("active_divergences", [])
+        lines = [
+            f"CROSS-SERIES CORRELATION REPORT",
+            "══════════════════════════════════════",
+            f"Monitored Pairs: {result.get('total_pairs', 0)}",
+            f"Active Divergences: {result.get('divergence_count', 0)}",
+            "",
+        ]
+
+        if divergences:
+            lines.append("ACTIVE DIVERGENCES:")
+            for d in divergences:
+                lines.append(
+                    f"  ⚠️ {d['pair_name']}: r dropped {d.get('long_run_correlation', '?')} → "
+                    f"{d.get('recent_correlation', '?')} (divergence: {d.get('divergence', '?')})"
+                )
+                if d.get("description"):
+                    lines.append(f"     {d['description']}")
+                lines.append("")
+        else:
+            lines.append("No divergences detected. All monitored pairs within normal correlation range.")
+
+        return "\n".join(lines)
+
+    def _format_full_dashboard_context(self, dashboard: dict, anomalies: dict, cross: dict) -> str:
+        """Format the complete dashboard into LLM-readable context."""
+        direction_icons = {"improving": "↑", "stable": "→", "deteriorating": "↓"}
+        agg_dir = dashboard.get("aggregate_direction", "stable")
+        agg_icon = direction_icons.get(agg_dir, "")
+
+        lines = [
+            f"MACRO SIGNAL REPORT",
+            "═══════════════════════════════════════",
+            "",
+            f"AGGREGATE: {dashboard.get('aggregate_score', 0):+.1f} ({agg_dir} {agg_icon})",
+            "",
+            "DOMAIN SCORECARDS:",
+        ]
+
+        for card in dashboard.get("scorecards", []):
+            d_icon = direction_icons.get(card.get("direction", "stable"), "→")
+            alert_str = f", {card.get('alert_count', 0)} alerts" if card.get("alert_count") else ""
+            lines.append(
+                f"  {card.get('label', card.get('domain', '?')):<25} {card.get('score', 0):+6.1f} "
+                f"({card.get('direction', 'stable')} {d_icon}){alert_str}"
+            )
+
+        # Anomalies
+        alert_list = anomalies.get("alerts", [])
+        lines.append("")
+        lines.append(f"ACTIVE ANOMALIES ({len(alert_list)}):")
+        if alert_list:
+            for a in alert_list[:5]:
+                sev = a.get("severity", "?").upper()
+                lines.append(f"  [{sev}] {a.get('series_name', a.get('series_id', '?'))}: {a.get('alert_type', '?')}")
+                lines.append(f"     {a.get('description', '')}")
+        else:
+            lines.append("  None — all series within normal ranges.")
+
+        # Cross-series
+        divs = cross.get("active_divergences", [])
+        lines.append("")
+        lines.append(f"CROSS-SERIES DIVERGENCES ({len(divs)}):")
+        if divs:
+            for d in divs[:3]:
+                lines.append(
+                    f"  ⚠️ {d['pair_name']}: r dropped {d.get('long_run_correlation', '?')} → "
+                    f"{d.get('recent_correlation', '?')}"
+                )
+                if d.get("description"):
+                    lines.append(f"     {d['description']}")
+        else:
+            lines.append("  None — all pairs within normal correlation range.")
+
+        return "\n".join(lines)
+
     def _build_answer_prompt(self, context: str, knowledge_source: str) -> ChatPromptTemplate:
         """Build the LLM prompt for answer generation.
 
@@ -786,7 +1068,14 @@ class Orchestrator:
             "at the end of your response. The UI displays sources separately.\n"
         )
 
-        if knowledge_source == "web_search":
+        if knowledge_source == "signal_engine":
+            system += (
+                "10. Your answer is based on the QUANT SIGNAL ENGINE. The data below "
+                "contains computed indicators (z-scores, MoM%, YoY%, signals, anomalies). "
+                "Synthesize this into a clear, analyst-level narrative. Be specific with "
+                "numbers. Highlight what's unusual. Give actionable insight.\n"
+            )
+        elif knowledge_source == "web_search":
             system += (
                 "10. Your answer is based on WEB SEARCH results.\n"
             )
@@ -834,6 +1123,7 @@ class Orchestrator:
     async def ask_stream(
         self, question: str, collection_name: Optional[str] = None,
         conversation_id: Optional[str] = None,
+        signal_context: Optional[List[dict]] = None,
     ) -> AsyncGenerator[dict, None]:
         """Streaming version of ask() — yields SSE events.
 
@@ -880,6 +1170,15 @@ class Orchestrator:
                 retrieved_docs = await vs.similarity_search_all(query=search_query)
                 tools_called.append("document_rag")
 
+                # Cross-encoder reranking for quality lift
+                if retrieved_docs:
+                    try:
+                        from app.services.models.reranker import rerank
+                        retrieved_docs = rerank(search_query, retrieved_docs, top_k=10)
+                        tools_called.append("reranker")
+                    except Exception:
+                        pass
+
                 if retrieved_docs:
                     doc_parts = []
                     for doc in retrieved_docs:
@@ -891,7 +1190,7 @@ class Orchestrator:
                             doc_sources.append(Source(
                                 content=content[:500],
                                 metadata=metadata,
-                                score=doc.get("score", 0.0),
+                                score=doc.get("rerank_score", doc.get("score", 0.0)),
                                 page=metadata.get("page"),
                                 filename=metadata.get("source"),
                             ))
@@ -900,35 +1199,57 @@ class Orchestrator:
             except Exception as e:
                 logger.warning(f"Document RAG failed: {e}")
 
-        # ─── 2. Structured data ──────────────────────────────────────────
-        if not is_short_greeting:
+        # ─── 2. Signal engine or structured data ─────────────────────────
+        if intent == "signal" and not is_short_greeting:
+            signal_context, signal_series, signal_tools, signal_cites = await self._handle_signal(question)
+            data_context = signal_context
+            series_used = signal_series
+            tools_called.extend(signal_tools)
+            citations.extend(signal_cites)
+        elif not is_short_greeting:
             data_context, series_used, ts_tools, citations = await self._handle_data(
                 question, collection_name=None
             )
             tools_called.extend(ts_tools)
 
-            # Add time series results as sources so they show in the UI
-            if data_context and data_context not in {"No data found.", "No matching time series found."}:
-                from app.models.schemas import Source
-                for sid in series_used[:3]:  # max 3 series sources
-                    pretty = sid.replace("__", " / ").replace("_", " ").title()
-                    doc_sources.insert(0, Source(
-                        content=data_context[:500],
-                        metadata={
-                            "source": "PostgreSQL Time Series",
-                            "title": pretty,
-                            "type": "time_series",
-                            "series_id": sid,
-                        },
-                        score=1.0,
-                        page=None,
-                        filename=f"📊 {pretty}",
-                    ))
+        # Add results as sources so they show in the UI
+        if not is_short_greeting and data_context and data_context not in {"No data found.", "No matching time series found."}:
+            from app.models.schemas import Source
+            source_type = "signal_engine" if intent == "signal" else "time_series"
+            source_label = "Quant Signal Engine" if intent == "signal" else "PostgreSQL Time Series"
+            for sid in series_used[:3]:
+                pretty = sid.replace("__", " / ").replace("_", " ").title()
+                doc_sources.insert(0, Source(
+                    content=data_context[:500],
+                    metadata={
+                        "source": source_label,
+                        "title": pretty,
+                        "type": source_type,
+                        "series_id": sid,
+                    },
+                    score=1.0,
+                    page=None,
+                    filename=f" {pretty}",
+                ))
+
+        # ─── 2b. Resolve user-pinned signal context ─────────────────────
+        pinned_signal_text = ""
+        if signal_context:
+            pinned_signal_text = await self._resolve_signal_context(signal_context)
+            tools_called.append("signal_context_pinned")
 
         # ─── 3. Merge context ──────────────────────────────────────────
         merged_context = ""
         has_db_context = False
-        knowledge_source = "database"
+        knowledge_source = "signal_engine" if intent == "signal" else "database"
+
+        if pinned_signal_text:
+            merged_context += (
+                "USER-PINNED SIGNAL ENGINE DATA (the user explicitly attached this for context — always reference it):\n"
+                f"{pinned_signal_text}\n\n"
+            )
+            has_db_context = True
+            knowledge_source = "signal_engine"
 
         # Put structured data FIRST so the LLM prioritises exact numbers
         no_data_phrases = {"No data found.", "No matching time series found."}

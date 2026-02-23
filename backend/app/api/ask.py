@@ -19,10 +19,19 @@ router = APIRouter(prefix="/ask", tags=["Ask"])
 limiter = Limiter(key_func=get_remote_address)
 
 
+class SignalContextItem(BaseModel):
+    """One piece of signal engine data the user wants injected as context."""
+    type: str = Field(..., description="One of: scorecard, anomalies, cross_series")
+    domain: Optional[str] = Field(None, description="For scorecard type: oil, monetary, banking, bop, inflation")
+
+
 class AskRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=10000)
     collection_name: Optional[str] = None
     conversation_id: Optional[str] = None
+    signal_context: Optional[list[SignalContextItem]] = Field(
+        None, description="Signal engine items the user pinned as context",
+    )
 
 
 @router.post("/")
@@ -35,6 +44,7 @@ async def ask_question(request: Request, body: AskRequest):
             question=body.question,
             collection_name=body.collection_name,
             conversation_id=body.conversation_id,
+            signal_context=[item.model_dump() for item in body.signal_context] if body.signal_context else None,
         )
         return result
     except Exception as e:
@@ -62,6 +72,7 @@ async def ask_question_stream(request: Request, body: AskRequest):
                 question=body.question,
                 collection_name=body.collection_name,
                 conversation_id=body.conversation_id,
+                signal_context=[item.model_dump() for item in body.signal_context] if body.signal_context else None,
             ):
                 yield {
                     "event": event["type"],

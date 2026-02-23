@@ -12,8 +12,8 @@ from slowapi.util import get_remote_address
 
 from app.config import get_settings
 from app.core.database import init_db
-from app.core.seed_datasets import seed_datasets
-from app.api import chat, documents, collections, ask, upload, auth
+from app.core.seed_series import seed_series_catalog
+from app.api import chat, documents, collections, ask, upload, auth, signals
 from app.models.schemas import HealthResponse
 from app.services.vectorstore import get_vectorstore_service
 
@@ -49,13 +49,11 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"❌ Database init failed: {e} — continuing without DB")
 
-    # (YAML catalog removed — CSV seed_datasets handles everything)
-
-    # Seed SAMA/EIA datasets from shipped CSVs
+    # Seed series catalog from YAML
     try:
-        await seed_datasets()
+        await seed_series_catalog()
     except Exception as e:
-        logger.warning(f"⚠️  Dataset seeding failed: {e}")
+        logger.warning(f"⚠️  Series catalog seeding failed: {e}")
 
     # Check Qdrant connection
     try:
@@ -66,6 +64,28 @@ async def lifespan(app: FastAPI):
             logger.warning("⚠️  Qdrant not reachable — some features may be unavailable")
     except Exception as e:
         logger.warning(f"⚠️  Qdrant check failed: {e}")
+
+    # Run signal pipeline after data is seeded
+    try:
+        from app.services.quant.runner import run_signal_pipeline
+        result = await run_signal_pipeline()
+        logger.info(
+            f"✅ Signal pipeline: {result['series_processed']} series, "
+            f"{result['anomalies_found']} anomalies, "
+            f"{result['duration_ms']}ms"
+        )
+    except Exception as e:
+        logger.warning(f"⚠️  Signal pipeline failed: {e}")
+
+    # Load ML models (reranker, changepoint, isolation forest, elastic net, topic cluster)
+    try:
+        from app.services.models.registry import get_registry
+        registry = get_registry()
+        model_results = registry.warm_all()
+        ready = sum(1 for v in model_results.values() if v == "ready")
+        logger.info(f"✅ ML models: {ready}/{len(model_results)} loaded — {model_results}")
+    except Exception as e:
+        logger.warning(f"⚠️  ML model loading failed: {e}")
 
     yield
 
@@ -125,6 +145,7 @@ def create_app() -> FastAPI:
     app.include_router(collections.router, prefix="/api")
     app.include_router(ask.router, prefix="/api")
     app.include_router(upload.router, prefix="/api")
+    app.include_router(signals.router, prefix="/api")
 
     # ─── Health Check ─────────────────────────────────
     @app.get("/api/health", response_model=HealthResponse, tags=["System"])
@@ -149,43 +170,6 @@ def create_app() -> FastAPI:
             qdrant_connected=vs.is_connected(),
             db_connected=db_ok,
         )
-
-    @app.get("/api/debug/series", tags=["System"])
-    async def debug_series():
-        """Check which series have observations — for deployment debugging."""
-        from app.core.database import get_session_factory
-        from app.models.timeseries import SeriesCatalog, Observation
-        from sqlalchemy import select, func
-
-        factory = await get_session_factory()
-        session = factory()
-        try:
-            result = await session.execute(
-                select(
-                    SeriesCatalog.series_id,
-                    SeriesCatalog.name,
-                    SeriesCatalog.collection_name,
-                    func.count(Observation.id).label("obs_count"),
-                )
-                .outerjoin(Observation, Observation.series_id == SeriesCatalog.series_id)
-                .group_by(SeriesCatalog.series_id, SeriesCatalog.name, SeriesCatalog.collection_name)
-                .order_by(SeriesCatalog.collection_name, SeriesCatalog.series_id)
-            )
-            rows = result.all()
-            return {
-                "total_series": len(rows),
-                "series": [
-                    {
-                        "series_id": r[0],
-                        "name": r[1],
-                        "collection": r[2],
-                        "observations": r[3],
-                    }
-                    for r in rows
-                ],
-            }
-        finally:
-            await session.close()
 
     @app.get("/", tags=["System"])
     async def root():

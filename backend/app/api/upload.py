@@ -357,7 +357,22 @@ async def unified_upload(
             return await _handle_document_upload(content, file.filename, collection_name, ext)
 
         # ─── TIME SERIES PATH ──────────────────────────────
-        return await _handle_timeseries_upload(content, file.filename, collection_name, source, ext)
+        result = await _handle_timeseries_upload(content, file.filename, collection_name, source, ext)
+
+        # ─── Re-run signal pipeline so new data gets signals immediately ──
+        try:
+            from app.services.quant.runner import run_signal_pipeline
+            sig = await run_signal_pipeline()
+            result["signal_pipeline"] = {
+                "series_processed": sig["series_processed"],
+                "anomalies_found": sig["anomalies_found"],
+                "duration_ms": sig["duration_ms"],
+            }
+            logger.info(f"Signal pipeline refreshed after upload: {sig['series_processed']} series")
+        except Exception as e:
+            logger.warning(f"Signal pipeline refresh after upload failed: {e}")
+
+        return result
     except HTTPException:
         raise
     except Exception as e:
