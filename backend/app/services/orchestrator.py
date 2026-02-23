@@ -330,10 +330,11 @@ class Orchestrator:
                 logger.warning(f"Document RAG failed: {e}")
 
         # ─── 2. Signal engine or structured time series ─────────────────
+        user_pinned_signals = signal_context  # preserve user-pinned items before overwrite
         if intent == "signal" and not is_short_greeting:
             # Signal intent → quant engine
-            signal_context, signal_series, signal_tools, signal_cites = await self._handle_signal(question)
-            data_context = signal_context
+            engine_context, signal_series, signal_tools, signal_cites = await self._handle_signal(question)
+            data_context = engine_context
             series_used = signal_series
             tools_called.extend(signal_tools)
             citations.extend(signal_cites)
@@ -366,8 +367,8 @@ class Orchestrator:
 
         # ─── 2b. Resolve user-pinned signal context ─────────────────────
         pinned_signal_text = ""
-        if signal_context:
-            pinned_signal_text = await self._resolve_signal_context(signal_context)
+        if user_pinned_signals:
+            pinned_signal_text = await self._resolve_signal_context(user_pinned_signals)
             tools_called.append("signal_context_pinned")
 
         # ─── 3. Merge context and check if we have relevant data ──────
@@ -1200,9 +1201,10 @@ class Orchestrator:
                 logger.warning(f"Document RAG failed: {e}")
 
         # ─── 2. Signal engine or structured data ─────────────────────────
+        user_pinned_signals = signal_context  # preserve user-pinned items before overwrite
         if intent == "signal" and not is_short_greeting:
-            signal_context, signal_series, signal_tools, signal_cites = await self._handle_signal(question)
-            data_context = signal_context
+            engine_context, signal_series, signal_tools, signal_cites = await self._handle_signal(question)
+            data_context = engine_context
             series_used = signal_series
             tools_called.extend(signal_tools)
             citations.extend(signal_cites)
@@ -1234,8 +1236,8 @@ class Orchestrator:
 
         # ─── 2b. Resolve user-pinned signal context ─────────────────────
         pinned_signal_text = ""
-        if signal_context:
-            pinned_signal_text = await self._resolve_signal_context(signal_context)
+        if user_pinned_signals:
+            pinned_signal_text = await self._resolve_signal_context(user_pinned_signals)
             tools_called.append("signal_context_pinned")
 
         # ─── 3. Merge context ──────────────────────────────────────────
