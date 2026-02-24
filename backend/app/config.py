@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
 
     # Security
-    ALLOWED_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
+    ALLOWED_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,https://frontend1-production-13ce.up.railway.app,https://jadwa-chat.com,https://www.jadwa-chat.com"
     MAX_UPLOAD_SIZE_MB: int = 50
     RATE_LIMIT_CHAT: str = "30/minute"
     RATE_LIMIT_UPLOAD: str = "10/minute"

@@ -42,7 +42,8 @@ async def _optional_user(
         async with factory() as session:
             result = await session.execute(select(User).where(User.id == int(user_id)))
             return result.scalar_one_or_none()
-    except Exception:
+    except Exception as exc:
+        logging.getLogger(__name__).debug("Soft auth failed: %s", exc)
         return None
 from app.services.quant.scorecard import get_scorecard, get_all_scorecards
 from app.services.quant.anomaly import get_active_anomalies, get_series_anomalies
@@ -66,8 +67,7 @@ async def signal_dashboard():
         cross_data = await get_all_divergences()
 
         factory = await get_session_factory()
-        session = factory()
-        try:
+        async with factory() as session:
             result = await session.execute(
                 select(SignalRun)
                 .where(SignalRun.status == "success")
@@ -80,8 +80,6 @@ async def signal_dashboard():
                 "series_processed": last_run.series_processed if last_run else 0,
                 "duration_ms": last_run.duration_ms if last_run else None,
             }
-        finally:
-            await session.close()
 
         report_date = None
         for card in scorecards_data.get("scorecards", []):
@@ -340,8 +338,7 @@ async def signal_context_menu():
 async def signal_health():
     """Last signal_run timestamp + status. No auth required."""
     factory = await get_session_factory()
-    session = factory()
-    try:
+    async with factory() as session:
         result = await session.execute(
             select(SignalRun)
             .order_by(SignalRun.started_at.desc())
@@ -365,8 +362,6 @@ async def signal_health():
             "divergences_found": run.divergences_found,
             "duration_ms": run.duration_ms,
         }
-    finally:
-        await session.close()
 
 
 # ── ML Models ─────────────────────────────────────────────────────────────────

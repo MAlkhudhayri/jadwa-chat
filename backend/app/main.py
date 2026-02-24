@@ -1,10 +1,12 @@
 import logging
+import os
 import traceback
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy import text
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -16,6 +18,20 @@ from app.core.seed_series import seed_series_catalog
 from app.api import chat, documents, collections, ask, upload, auth, signals
 from app.models.schemas import HealthResponse
 from app.services.vectorstore import get_vectorstore_service
+
+_IS_PRODUCTION = os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("ENVIRONMENT") == "production"
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        if _IS_PRODUCTION:
+            response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+        return response
 
 # Configure logging
 logging.basicConfig(
@@ -103,8 +119,8 @@ def create_app() -> FastAPI:
         ),
         version=settings.APP_VERSION,
         lifespan=lifespan,
-        docs_url="/docs",
-        redoc_url="/redoc",
+        docs_url=None if _IS_PRODUCTION else "/docs",
+        redoc_url=None if _IS_PRODUCTION else "/redoc",
     )
 
     # ─── Rate Limiter ─────────────────────────────────
@@ -117,11 +133,11 @@ def create_app() -> FastAPI:
         logger.error(f"Unhandled error: {exc}\n{traceback.format_exc()}")
         return JSONResponse(
             status_code=500,
-            content={
-                "detail": "An internal error occurred. Please try again.",
-                "type": type(exc).__name__,
-            },
+            content={"detail": "An internal error occurred. Please try again."},
         )
+
+    # ─── Security Headers ─────────────────────────────
+    app.add_middleware(SecurityHeadersMiddleware)
 
     # ─── CORS ─────────────────────────────────────────
     origins = settings.ALLOWED_ORIGINS
